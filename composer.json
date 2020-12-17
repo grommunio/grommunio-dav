@@ -1,0 +1,41 @@
+{
+    "name"                  : "grammm/dav",
+    "description"           : "This is grammm DAV implementation",
+    "require": {
+        "sabre/dav"         : "~3.2.0",
+        "apache/log4php"    : "~2.3.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit"   : "~5.7.0"
+    },
+    "license"               : "AGPL v3",
+    "authors": [
+        {
+            "name"          : "Manfred Kutas",
+            "email"         : "manfred@z-push.org",
+            "role"          : "Developer"
+        },
+        {
+            "name"          : "Sebastian Kummer",
+            "email"         : "sebastian@z-push.org",
+            "role"          : "Developer"
+        },
+        {
+            "name"          : "Michael Becker",
+            "email"         : "michael.becker@grammm.com",
+            "role"          : "Developer"
+        },
+        {
+            "name"          : "Andreas Lang",
+            "email"         : "andreas.lang@grammm.com",
+            "role"          : "Developer"
+        }
+    ],
+    "autoload" : {
+        "psr-4" : {
+            "grammm\\DAV\\" : "lib/"
+        },
+        "files" : ["config.php", "version.php", "mapi/mapi.util.php", "mapi/mapicode.php", "mapi/mapidefs.php", "mapi/mapiguid.php", "mapi/mapitags.php", "mapi/class.baserecurrence.php", "mapi/class.recurrence.php", "mapi/class.freebusypublish.php"]
+    },
+    "minimum-stability"     : "stable"
+}
