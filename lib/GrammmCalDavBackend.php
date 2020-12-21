@@ -396,11 +396,11 @@ class GrammmCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend implemen
             $lastDaytime = strripos($ics, 'BEGIN:DAYLIGHT', $xLicLocation);
             $lastStandard = strripos($ics, 'BEGIN:STANDARD', $xLicLocation);
 
-            // the first part of ics until the first peace of standard/daytime information
+            // the first part of ics until the first piece of standard/daytime information
             $cutStart = $firstDaytime < $firstStandard ? $firstDaytime : $firstStandard;
 
             if ($lastDaytime > $lastStandard) {
-                // the part of the ics with the last peace of standard/daytime information
+                // the part of the ics with the last piece of standard/daytime information
                 $cutEnd = $lastDaytime;
 
                 // the positions of the last piece of standard information
@@ -408,7 +408,7 @@ class GrammmCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend implemen
                 $cut2 = strripos($ics, 'END:STANDARD', $lastStandard) + 14; // strlen('END:STANDARD')
             }
             else {
-                // the part of the ics with the last peace of standard/daytime information
+                // the part of the ics with the last piece of standard/daytime information
                 $cutEnd = $lastStandard;
 
                 // the positions of the last piece of daylight information
