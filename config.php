@@ -16,7 +16,7 @@ define('SABRE_AUTH_REALM', 'grammm dav');
 define('DAV_ROOT_URI', '/dav/');
 
 // Location of the sync database (PDO syntax)
-define('SYNC_DB', 'sqlite:/var/lib/grammm-dav/syncstate.db');
+define('SYNC_DB', 'sqlite:/var/lib/grommunio-dav/syncstate.db');
 
 // Number of items to send in one request.
 define('MAX_SYNC_ITEMS', 1000);
