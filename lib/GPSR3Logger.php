@@ -2,12 +2,12 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
  * Wrapper to get a PSR-3 compatible interface out of an php4log logger.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
 class GPSR3Logger implements \Psr\Log\LoggerInterface {
     /**

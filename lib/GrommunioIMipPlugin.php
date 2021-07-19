@@ -2,21 +2,21 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
  * Sends meeting invitations.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
-class GrammmIMipPlugin extends \Sabre\CalDAV\Schedule\IMipPlugin {
+class GrommunioIMipPlugin extends \Sabre\CalDAV\Schedule\IMipPlugin {
     /**
      * Constructor.
      *
-     * @param GrammmDavBackend $gDavBackend
+     * @param GrommunioDavBackend $gDavBackend
      * @param GLogger $glogger
      */
-    public function __construct(GrammmDavBackend $gDavBackend, GLogger $glogger) {
+    public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
         $this->gDavBackend = $gDavBackend;
         $this->logger = $glogger;
     }

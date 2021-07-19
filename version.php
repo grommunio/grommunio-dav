@@ -2,9 +2,9 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * Version file for GrammmDAV.
+ * Version file for GrommunioDAV.
  */
 
 if (!defined("GDAV_VERSION")) {

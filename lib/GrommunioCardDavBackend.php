@@ -2,16 +2,16 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * grammm Card DAV backend class which handles contact related activities.
+ * grommunio Card DAV backend class which handles contact related activities.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
 use \Sabre\VObject;
 
-class GrammmCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend implements \Sabre\CardDAV\Backend\SyncSupport {
+class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend implements \Sabre\CardDAV\Backend\SyncSupport {
     private $logger;
     protected $gDavBackend;
 
@@ -22,10 +22,10 @@ class GrammmCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend implem
     /**
      * Constructor.
      *
-     * @param GrammmDavBackend $gDavBackend
+     * @param GrommunioDavBackend $gDavBackend
      * @param GLogger $glogger
      */
-    public function __construct(GrammmDavBackend $gDavBackend, GLogger $glogger) {
+    public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
         $this->gDavBackend = $gDavBackend;
         $this->logger = $glogger;
     }
@@ -286,7 +286,7 @@ class GrammmCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend implem
         $objectId = $this->gDavBackend->GetObjectIdFromObjectUri($cardUri, static::FILE_EXTENSION);
 
         // to delete we need the PR_ENTRYID of the message
-        // TODO move this part to GrammmDavBackend
+        // TODO move this part to GrommunioDavBackend
         $mapimessage = $this->gDavBackend->GetMapiMessageForId($addressBookId, $cardUri, $mapifolder, static::FILE_EXTENSION);
         $props = mapi_getprops($mapimessage, array(PR_ENTRYID));
         mapi_folder_deletemessages($mapifolder, array($props[PR_ENTRYID]));

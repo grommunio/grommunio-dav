@@ -2,15 +2,15 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * Tests for grammm Card DAV backend class which handles
+ * Tests for grommunio Card DAV backend class which handles
  * contact related activities.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
-class GrammmCardDavBackendTest extends \PHPUnit_Framework_TestCase {
+class GrommunioCardDavBackendTest extends \PHPUnit_Framework_TestCase {
     private $gDavBackendMock;
     private $kCardDavBackend;
 
@@ -22,8 +22,8 @@ class GrammmCardDavBackendTest extends \PHPUnit_Framework_TestCase {
      */
     protected function setUp() {
         $gloggerMock = $this->getMockBuilder(GLogger::class)->disableOriginalConstructor()->getMock();
-        $this->gDavBackendMock = $this->getMockBuilder(GrammmDavBackend::class)->disableOriginalConstructor()->getMock();
-        $this->kCardDavBackend = new GrammmCardDavBackend($this->gDavBackendMock, $gloggerMock);
+        $this->gDavBackendMock = $this->getMockBuilder(GrommunioDavBackend::class)->disableOriginalConstructor()->getMock();
+        $this->kCardDavBackend = new GrommunioCardDavBackend($this->gDavBackendMock, $gloggerMock);
     }
 
     /**

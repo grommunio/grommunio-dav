@@ -2,14 +2,14 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * Tests for grammm DAV backend class which handles grammm related activities.
+ * Tests for grommunio DAV backend class which handles grommunio related activities.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
-class GrammmDavBackendTest extends \PHPUnit_Framework_TestCase {
+class GrommunioDavBackendTest extends \PHPUnit_Framework_TestCase {
     protected $gDavBackend;
 
     /**
@@ -19,7 +19,7 @@ class GrammmDavBackendTest extends \PHPUnit_Framework_TestCase {
      */
     protected function setUp() {
         $gloggerMock = $this->getMockBuilder(GLogger::class)->disableOriginalConstructor()->getMock();
-        $this->gDavBackend = new GrammmDavBackend($gloggerMock);
+        $this->gDavBackend = new GrommunioDavBackend($gloggerMock);
     }
 
     /**

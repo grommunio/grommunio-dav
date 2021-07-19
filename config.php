@@ -2,15 +2,15 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * Configuration file for GrammmDAV.
+ * Configuration file for GrommunioDAV.
  */
 
 define('MAPI_SERVER', 'default:');
 
 // Authentication realm
-define('SABRE_AUTH_REALM', 'grammm dav');
+define('SABRE_AUTH_REALM', 'grommunio dav');
 
 // Location of the SabreDAV server.
 define('DAV_ROOT_URI', '/dav/');

@@ -2,12 +2,12 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * grammm basic authentication backend class.
+ * grommunio basic authentication backend class.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
 class AuthBasicBackend extends \Sabre\DAV\Auth\Backend\AbstractBasic {
     protected $gDavBackend;
@@ -15,12 +15,12 @@ class AuthBasicBackend extends \Sabre\DAV\Auth\Backend\AbstractBasic {
     /**
      * Constructor.
      *
-     * @param GrammmDavBackend $gDavBackend
+     * @param GrommunioDavBackend $gDavBackend
      *
      * @access public
      * @return void
      */
-    public function __construct (GrammmDavBackend $gDavBackend) {
+    public function __construct (GrommunioDavBackend $gDavBackend) {
         $this->gDavBackend = $gDavBackend;
     }
 

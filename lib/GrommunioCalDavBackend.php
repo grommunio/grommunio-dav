@@ -2,14 +2,14 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * grammm CalDAV backend class which handles calendar related activities.
+ * grommunio CalDAV backend class which handles calendar related activities.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
-class GrammmCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend implements \Sabre\CalDAV\Backend\SchedulingSupport, \Sabre\CalDAV\Backend\SyncSupport {
+class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend implements \Sabre\CalDAV\Backend\SchedulingSupport, \Sabre\CalDAV\Backend\SyncSupport {
     /*
      * TODO IMPLEMENT
      *
@@ -28,10 +28,10 @@ class GrammmCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend implemen
     /**
      * Constructor.
      *
-     * @param GrammmDavBackend $gDavBackend
+     * @param GrommunioDavBackend $gDavBackend
      * @param GLogger $glogger
      */
-    public function __construct(GrammmDavBackend $gDavBackend, GLogger $glogger) {
+    public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
         $this->gDavBackend = $gDavBackend;
         $this->logger = $glogger;
     }
@@ -450,7 +450,7 @@ class GrammmCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend implemen
         $mapifolder = $this->gDavBackend->GetMapiFolder($calendarId);
 
         // to delete we need the PR_ENTRYID of the message
-        // TODO move this part to GrammmDavBackend
+        // TODO move this part to GrommunioDavBackend
         $mapimessage = $this->gDavBackend->GetMapiMessageForId($calendarId, $objectUri, $mapifolder, static::FILE_EXTENSION);
         $props = mapi_getprops($mapimessage, array(PR_ENTRYID));
         mapi_folder_deletemessages($mapifolder, array($props[PR_ENTRYID]));

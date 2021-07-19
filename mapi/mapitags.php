@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2005 - 2016 Zarafa and its licensors
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  */
 
 define('PR_ACKNOWLEDGEMENT_MODE'                      ,mapi_prop_tag(PT_LONG,        0x0001));

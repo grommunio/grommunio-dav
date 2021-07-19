@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2005 - 2016 Zarafa and its licensors
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  */
 
 define('IID_IStream',                           makeguid("{0000000c-0000-0000-c000-000000000046}"));

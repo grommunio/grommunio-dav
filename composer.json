@@ -1,6 +1,6 @@
 {
-    "name"                  : "grammm/dav",
-    "description"           : "This is grammm DAV implementation",
+    "name"                  : "grommunio/dav",
+    "description"           : "This is grommunio DAV implementation",
     "require": {
         "sabre/dav"         : "~3.2.0",
         "apache/log4php"    : "~2.3.0"
@@ -22,18 +22,18 @@
         },
         {
             "name"          : "Michael Becker",
-            "email"         : "michael.becker@grammm.com",
+            "email"         : "michael.becker@grommunio.com",
             "role"          : "Developer"
         },
         {
             "name"          : "Andreas Lang",
-            "email"         : "andreas.lang@grammm.com",
+            "email"         : "andreas.lang@grommunio.com",
             "role"          : "Developer"
         }
     ],
     "autoload" : {
         "psr-4" : {
-            "grammm\\DAV\\" : "lib/"
+            "grommunio\\DAV\\" : "lib/"
         },
         "files" : ["config.php", "version.php", "mapi/mapi.util.php", "mapi/mapicode.php", "mapi/mapidefs.php", "mapi/mapiguid.php", "mapi/mapitags.php", "mapi/class.baserecurrence.php", "mapi/class.recurrence.php", "mapi/class.freebusypublish.php"]
     },

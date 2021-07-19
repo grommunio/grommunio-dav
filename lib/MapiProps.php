@@ -2,12 +2,12 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
  * MAPI Property definitions.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
 class MapiProps {
     const PROP_VCARDUID = "PT_UNICODE:PSETID_GROMOX:vcarduid";

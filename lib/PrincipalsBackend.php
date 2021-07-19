@@ -2,12 +2,12 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * grammm DAV Principals backend class.
+ * grommunio DAV Principals backend class.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
 class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterface {
 
@@ -16,10 +16,10 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
     /**
      * Constructor.
      *
-     * @param GrammmDavBackend $gDavBackend
+     * @param GrommunioDavBackend $gDavBackend
      */
-    public function __construct(GrammmDavBackend $gDavBackend) {
-        file_put_contents('/tmp/grammm-dav.log', "construct principals\n", FILE_APPEND);
+    public function __construct(GrommunioDavBackend $gDavBackend) {
+        file_put_contents('/tmp/grommunio-dav.log', "construct principals\n", FILE_APPEND);
 
         $this->gDavBackend = $gDavBackend;
     }
@@ -72,9 +72,9 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
         else {
             $username = str_replace('principals/', '', $path);
         }
-        file_put_contents('/tmp/grammm-dav.log', 'before mapi_zarafa_getuser_by_name', FILE_APPEND);
+        file_put_contents('/tmp/grommunio-dav.log', 'before mapi_zarafa_getuser_by_name', FILE_APPEND);
         $userinfo = mapi_zarafa_getuser_by_name($this->gDavBackend->GetStore($username), $username);
-        file_put_contents('/tmp/grammm-dav.log', 'AFTER mapi_zarafa_getuser_by_name', FILE_APPEND);
+        file_put_contents('/tmp/grommunio-dav.log', 'AFTER mapi_zarafa_getuser_by_name', FILE_APPEND);
         if (!$userinfo) {
             return false;
         }

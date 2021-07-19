@@ -2,12 +2,12 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
  * PHP wrapper class for ICS.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
 class PHPWrapper {
     private $store;
@@ -25,7 +25,7 @@ class PHPWrapper {
      * @param GLogger $logger
      * @param mixed $props
      * @param string $fileext
-     * @param GrammmSyncState $syncstate
+     * @param GrommunioSyncState $syncstate
      * @param string $folderid
      */
     public function __construct($store, $logger, $props, $fileext, $syncstate, $folderid) {

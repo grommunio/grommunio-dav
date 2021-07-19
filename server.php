@@ -2,12 +2,12 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
  * This is the entry point through which all requests are processed.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
 // require composer auto-loader
 require __DIR__ . '/vendor/autoload.php';
@@ -27,15 +27,15 @@ if (isset($_REQUEST['sabreAction']) && $_REQUEST['sabreAction'] == 'asset') {
 // log the start data
 $logger->debug('------------------ Start');
 $logger->debug('%s %s', $_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);
-$logger->debug('grammm-dav version %s', GDAV_VERSION);
+$logger->debug('grommunio-dav version %s', GDAV_VERSION);
 $logger->debug('SabreDAV version %s',\Sabre\DAV\Version::VERSION);
 
-$gdavBackend = new GrammmDavBackend(new GLogger(('dav')));
+$gdavBackend = new GrommunioDavBackend(new GLogger(('dav')));
 $authBackend = new AuthBasicBackend($gdavBackend);
 $authBackend->setRealm(SABRE_AUTH_REALM);
 $principalBackend = new PrincipalsBackend($gdavBackend);
-$gCarddavBackend  = new GrammmCardDavBackend($gdavBackend, new GLogger('card'));
-$gCaldavBackend   = new GrammmCalDavBackend($gdavBackend, new GLogger('cal'));
+$gCarddavBackend  = new GrommunioCardDavBackend($gdavBackend, new GLogger('card'));
+$gCaldavBackend   = new GrommunioCalDavBackend($gdavBackend, new GLogger('cal'));
 
 // Setting up the directory tree
 $nodes = array(
@@ -62,10 +62,10 @@ $aclPlugin = new DAVACL();
 $aclPlugin->allowUnauthenticatedAccess = false;
 $server->addPlugin($aclPlugin);
 
-$schedulePlugin = new GrammmSchedulePlugin($gdavBackend, new GLogger('schedule'));
+$schedulePlugin = new GrommunioSchedulePlugin($gdavBackend, new GLogger('schedule'));
 $server->addPlugin($schedulePlugin);
 
-$imipPlugin = new GrammmIMipPlugin($gdavBackend, new GLogger('imip'));
+$imipPlugin = new GrommunioIMipPlugin($gdavBackend, new GLogger('imip'));
 $server->addPlugin($imipPlugin);
 
 $server->addPlugin(new \Sabre\CalDAV\ICSExportPlugin());

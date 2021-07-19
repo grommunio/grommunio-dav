@@ -2,12 +2,12 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
  * A wrapper for log4php Logger.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
 /**
  * GLogger: wraps the php4log logger to log with better performance.
@@ -35,7 +35,7 @@ class GLogger {
         }
 
         // let GLogger handle error messages
-        set_error_handler('\\grammm\\DAV\\GLogger::ErrorHandler');
+        set_error_handler('\\grommunio\\DAV\\GLogger::ErrorHandler');
     }
 
     /**
@@ -244,7 +244,7 @@ class GLogger {
     }
 
     /**
-     * The GrammmDav error handler.
+     * The GrommunioDav error handler.
      *
      * @param int $errno
      * @param string $errstr

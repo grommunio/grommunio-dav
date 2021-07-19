@@ -2,14 +2,14 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grammm GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * grammm DAV backend class which handles grammm related activities.
+ * grommunio DAV backend class which handles grommunio related activities.
  */
 
-namespace grammm\DAV;
+namespace grommunio\DAV;
 
-class GrammmDavBackend {
+class GrommunioDavBackend {
     private $logger;
     protected $session;
     protected $stores;
@@ -24,11 +24,11 @@ class GrammmDavBackend {
      */
     public function __construct(GLogger $glogger) {
         $this->logger = $glogger;
-        $this->syncstate = new GrammmSyncState($glogger, SYNC_DB);
+        $this->syncstate = new GrommunioSyncState($glogger, SYNC_DB);
     }
 
     /**
-     * Connect to grammm and create session.
+     * Connect to grommunio and create session.
      *
      * @param String $user
      * @param String $pass
@@ -39,7 +39,7 @@ class GrammmDavBackend {
     public function Logon($user, $pass) {
         $this->logger->trace('%s / password', $user);
 
-        $gDavVersion = 'grammm-dav' . @constant('GDAV_VERSION');
+        $gDavVersion = 'grommunio-dav' . @constant('GDAV_VERSION');
         $userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'unknown';
         $this->session = mapi_logon_zarafa($user, $pass, MAPI_SERVER, null, null, 1, $gDavVersion, $userAgent);
         if (!$this->session) {
@@ -216,10 +216,10 @@ class GrammmDavBackend {
                 'size'          => $row[PR_MESSAGE_SIZE], // only approximation
             ];
 
-            if ($fileExtension == GrammmCalDavBackend::FILE_EXTENSION) {
+            if ($fileExtension == GrommunioCalDavBackend::FILE_EXTENSION) {
                 $result['calendarid'] = $id;
             }
-            elseif ($fileExtension == GrammmCardDavBackend::FILE_EXTENSION) {
+            elseif ($fileExtension == GrommunioCardDavBackend::FILE_EXTENSION) {
                 $result['addressbookid'] = $id;
             }
             $results[] = $result;
@@ -339,7 +339,7 @@ class GrammmDavBackend {
     /**
      * Returns store from the id.
      * @param mixed $id
-     * @return \grammm\DAV\MAPIStore|false on error
+     * @return \grommunio\DAV\MAPIStore|false on error
      */
     public function GetStoreById($id) {
         $arr = explode(':', $id);
@@ -358,7 +358,7 @@ class GrammmDavBackend {
      * Returns an object ID of a mapi object.
      * If set, goid will be preferred. If not the PR_SOURCE_KEY of the message (as hex) will be returned.
      *
-     * This order is reflected as well when searching for a message with these ids in GrammmDavBackend->GetMapiMessageForId().
+     * This order is reflected as well when searching for a message with these ids in GrommunioDavBackend->GetMapiMessageForId().
      *
      * @param string $folderId
      * @param mapiresource $mapimessage
@@ -439,13 +439,13 @@ class GrammmDavBackend {
             $restriction = array();
 
             if ($extension) {
-                if ($extension == GrammmCalDavBackend::FILE_EXTENSION) {
+                if ($extension == GrommunioCalDavBackend::FILE_EXTENSION) {
                     $this->logger->trace("Try goid %s", $id);
                     $goid = getGoidFromUid($id);
                     $this->logger->trace("Try goid 0x%08X => %s", $properties["goid"], bin2hex($goid));
                     $restriction[] = array(RES_PROPERTY, array(RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid));
                 }
-                elseif ($extension == GrammmCardDavBackend::FILE_EXTENSION) {
+                elseif ($extension == GrommunioCardDavBackend::FILE_EXTENSION) {
                     $this->logger->trace("Try vcarduid %s", $id);
                     $restriction[] = array(RES_PROPERTY, array(RELOP => RELOP_EQ, ULPROPTAG => $properties["vcarduid"], VALUE => $id));
                 }
