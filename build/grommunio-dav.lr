@@ -1,0 +1,6 @@
+/var/log/grommunio-dav/*.log {
+	size 1k
+	su grodav grodav
+	compress
+	rotate 4
+}
