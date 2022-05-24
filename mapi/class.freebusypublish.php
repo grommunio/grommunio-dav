@@ -65,7 +65,7 @@ class FreeBusyPublish {
 	}
 
 	/**
-	 * Publishes the infomation
+	 * Publishes the information
 	 * @paam timestamp $starttime Time from which to publish data  (usually now)
 	 * @paam integer $length Amount of seconds from $starttime we should publish
 	 */

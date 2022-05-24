@@ -62,7 +62,7 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
      * Calling the handle method is like telling the PropPatch object "I
      * promise I can handle updating this property".
      *
-     * Read the PropPatch documenation for more info and examples.
+     * Read the PropPatch documentation for more info and examples.
      *
      * @param string $addressBookId
      * @param \Sabre\DAV\PropPatch $propPatch
@@ -115,7 +115,7 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
      *   * size - The size of the card in bytes.
      *
      * If these last two properties are provided, less time will be spent
-     * calculating them. If they are specified, you can also ommit carddata.
+     * calculating them. If they are specified, you can also omit carddata.
      * This may speed up certain requests, especially with large cards.
      *
      * @param mixed $addressbookId
@@ -128,7 +128,7 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
     }
 
     /**
-     * Returns a specfic card.
+     * Returns a specific card.
      *
      * The same set of properties must be returned as with getCards. The only
      * exception is that 'carddata' is absolutely required.
@@ -137,7 +137,7 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
      *
      * @param mixed $addressBookId
      * @param string $cardUri
-     * @param ressource $mapifolder     optional mapifolder resource, used if avialable
+     * @param resource $mapifolder     optional mapifolder resource, used if available
      * @return array
      */
     public function getCard($addressBookId, $cardUri, $mapifolder = null) {

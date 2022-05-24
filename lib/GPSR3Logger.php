@@ -80,7 +80,7 @@ class GPSR3Logger implements \Psr\Log\LoggerInterface {
     }
 
     /**
-     * Warnings (not necesserily errors).
+     * Warnings (not necessarily errors).
      *
      * @param string $message
      * @param array $context

@@ -142,8 +142,8 @@
 			if (strlen($rdata) < 10)
 				return;
 
-			$ret["changed_occurences"] = array();
-			$ret["deleted_occurences"] = array();
+			$ret["changed_occurrences"] = array();
+			$ret["deleted_occurrences"] = array();
 
 			$data = unpack("Vconst1/Crtype/Cconst2/Vrtype2", $rdata);
 
@@ -436,7 +436,7 @@
 			 */
 
 			// Find deleted occurrences
-			$deleted_occurences = array();
+			$deleted_occurrences = array();
 
 			foreach($exc_base_dates as $base_date) {
 				$found = false;
@@ -449,11 +449,11 @@
 				}
 				if (!$found)
 					// item was not in exc_changed_details, so it must be deleted
-					$deleted_occurences[] = $base_date;
+					$deleted_occurrences[] = $base_date;
 			}
 
-			$ret["deleted_occurences"] = $deleted_occurences;
-			$ret["changed_occurences"] = $exc_changed_details;
+			$ret["deleted_occurrences"] = $deleted_occurrences;
+			$ret["changed_occurrences"] = $exc_changed_details;
 
 			// enough data for normal exception (no extended data)
 			if (strlen($rdata) < 16)
@@ -517,7 +517,7 @@
 			}
 
 			// update with extended data
-			$ret["changed_occurences"] = $exc_changed_details;
+			$ret["changed_occurrences"] = $exc_changed_details;
 
 			return $ret;
 		}
@@ -595,10 +595,10 @@
 					if (($dayofweek < $weekstart && $dayskip > 0) || ($dayofweek + $dayskip) > 6)
 						$weekskip = 1;
 
-					// Check if the recurrence ends after a number of occurences, in that case we must calculate the
-					// remaining occurences based on the start of the recurrence.
+					// Check if the recurrence ends after a number of occurrences, in that case we must calculate the
+					// remaining occurrences based on the start of the recurrence.
 					if (((int) $this->recur["term"]) == 0x22) {
-						// $weekskip is the amount of weeks to skip from the startdate before the first occurence
+						// $weekskip is the amount of weeks to skip from the startdate before the first occurrence
 						// $forwardcount is the maximum number of week occurrences we can go ahead after the first occurrence that
 						// is still inside the recurrence. We subtract one to make sure that the last week is never forwarded over
 						// (eg when numoccur = 2, and daycount = 1)
@@ -643,8 +643,8 @@
 				$curyear = gmdate("Y", (int) $this->recur["start"]);
 				$curmonth = gmdate("n", (int) $this->recur["start"]);
 
-				// Check if the recurrence ends after a number of occurences, in that case we must calculate the
-				// remaining occurences based on the start of the recurrence.
+				// Check if the recurrence ends after a number of occurrences, in that case we must calculate the
+				// remaining occurrences based on the start of the recurrence.
 				if (((int) $this->recur["term"]) == 0x22)
 					// $forwardcount is the number of occurrences we can skip and still be inside the recurrence range (minus
 					// one to make sure there are always at least one occurrence left)
@@ -672,7 +672,7 @@
 					    ($term == 0x0D /*yearly*/ && ($selmonth < $curmonth || ($selmonth == $curmonth && ((int) $this->recur["monthday"]) < $curmonthday))))
 					{
 						if ($term == 0x0D /*yearly*/)
-							$count = ($everyn - ($curmonth - $selmonth)); // Yearly, go to next occurrence in 'everyn' months minus difference in first occurence and original date
+							$count = ($everyn - ($curmonth - $selmonth)); // Yearly, go to next occurrence in 'everyn' months minus difference in first occurrence and original date
 						else
 							$count = $everyn; // Monthly, go to next occurrence in 'everyn' months
 
@@ -856,8 +856,8 @@
 			// Exception data
 
 			// Get all exceptions
-			$deleted_items = $this->recur["deleted_occurences"];
-			$changed_items = $this->recur["changed_occurences"];
+			$deleted_items = $this->recur["deleted_occurrences"];
+			$changed_items = $this->recur["changed_occurrences"];
 
 			// Merge deleted and changed items into one list
 			$items = $deleted_items;
@@ -926,7 +926,7 @@
 				case 0x0B: //weekly
 					// Needed values
 					// $forwardcount - number of weeks we can skip forward
-					// $restocc - number of remaning occurrences after the week skip
+					// $restocc - number of remaining occurrences after the week skip
 
 					// Add the weeks till the last item
 					$occenddate += ($forwardcount * 7 * 24 * 60 * 60);
@@ -1062,7 +1062,7 @@
 
 			// FlagDueBy is datetime of the first reminder occurrence. Outlook gives on this time a reminder popup dialog
 			// Any change of the recurrence (including changing and deleting exceptions) causes the flagdueby to be reset
-			// to the 'next' occurrence; this makes sure that deleting the next ocurrence will correctly set the reminder to
+			// to the 'next' occurrence; this makes sure that deleting the next occurrence will correctly set the reminder to
 			// the occurrence after that. The 'next' occurrence is defined as being the first occurrence that starts at moment X (server time)
 			// with the reminder flag set.
 			$reminderprops = mapi_getprops($this->message, array($this->proptags["reminder_minutes"]) );
@@ -1100,7 +1100,7 @@
 
 			// Detailed exception data
 
-			$changed_items = $this->recur["changed_occurences"];
+			$changed_items = $this->recur["changed_occurrences"];
 
 			$rdata .= pack("v", count($changed_items));
 
@@ -1469,10 +1469,10 @@
 				// exceptions are in range and have a reminder set
 				if($remindersonly && (!isset($this->messageprops[$this->proptags["reminder"]]) || $this->messageprops[$this->proptags["reminder"]] == false)) {
 					// Sort exceptions by start time
-					uasort($this->recur["changed_occurences"], array($this, "sortExceptionStart"));
+					uasort($this->recur["changed_occurrences"], array($this, "sortExceptionStart"));
 
 					// Loop through all changed exceptions
-					foreach($this->recur["changed_occurences"] as $exception) {
+					foreach($this->recur["changed_occurrences"] as $exception) {
 						// Check reminder set
 						if(!isset($exception["reminder"]) || $exception["reminder"] == false)
 							continue;
@@ -1681,7 +1681,7 @@
 					}
 				}
 				//to get all exception items
-				if (!empty($this->recur['changed_occurences']))
+				if (!empty($this->recur['changed_occurrences']))
 					$this->processExceptionItems($items, $start, $end);
 			}
 
@@ -1705,7 +1705,7 @@
 		 *
 		 * Returns the number of days in the upcoming number of months. If you specify 1 month as
 		 * $months it will give you the number of days in the month of $date. If you specify more it
-		 * will also count the days in the upcomming months and add that to the number of days. So
+		 * will also count the days in the upcoming months and add that to the number of days. So
 		 * if you have a date in march and you specify $months as 2 it will return 61.
 		 * @param Integer $date Specified date as timestamp from which you want to know the number
 		 * of days in the month.

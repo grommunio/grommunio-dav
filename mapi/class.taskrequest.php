@@ -82,7 +82,7 @@
 		 * actions in this class.
 		 *
 		 * @param $store store MAPI Store in which $message resides. This is also the store where the tasks folder is assumed to be in
-		 * @param $message message MAPI Message to which the task request referes (can be an email or a task)
+		 * @param $message message MAPI Message to which the task request refers to (can be an email or a task)
 		 * @param $session session MAPI Session which is used to open tasks folders for delegated task requests or responses
 		 */
 		function __construct($store, $message, $session) {
@@ -852,7 +852,7 @@
 
 		/** Adds task details to message body and returns body.
 		 *
-		 *@return string contructed body with task details.
+		 *@return string constructed body with task details.
 		 */
 		function getBody()
 		{

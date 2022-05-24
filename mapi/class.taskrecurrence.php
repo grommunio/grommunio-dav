@@ -85,7 +85,7 @@
 			// Save recurrence because we need proper startrecurrdate and endrecurrdate
 			$this->saveRecurrence();
 
-			// Update $this->recur with proper startrecurrdate and endrecurrdate updated after saveing recurrence
+			// Update $this->recur with proper startrecurrdate and endrecurrdate updated after saving recurrence
 			$msgProps = mapi_getprops($this->message, array($this->proptags['recurring_data']));
 			$recurring_data = $this->parseRecurrence($msgProps[$this->proptags['recurring_data']]);
 			foreach($recurring_data as $key => $value) {

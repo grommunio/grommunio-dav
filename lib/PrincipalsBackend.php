@@ -86,7 +86,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
                     'uri'                                       => 'principals/' . $username,
                     '{DAV:}displayname'                         => $fullname,
                     '{http://sabredav.org/ns}email-address'     => $emailaddress,
-                    // TODO 'vcardurl' shoudl be set, see here: http://sabre.io/dav/principals/
+                    // TODO 'vcardurl' should be set, see here: http://sabre.io/dav/principals/
             );
     }
 
@@ -100,7 +100,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
      * Calling the handle method is like telling the PropPatch object "I
      * promise I can handle updating this property".
      *
-     * Read the PropPatch documenation for more info and examples.
+     * Read the PropPatch documentation for more info and examples.
      *
      * @param string $path
      * @param \Sabre\DAV\PropPatch $propPatch
