@@ -1,4 +1,4 @@
-<?
+<?php
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
@@ -21,28 +21,28 @@ $logger = new GLogger('main');
 
 // don't log any Sabre asset requests (images etc)
 if (isset($_REQUEST['sabreAction']) && $_REQUEST['sabreAction'] == 'asset') {
-    $logger->resetConfiguration();
+	$logger->resetConfiguration();
 }
 
 // log the start data
 $logger->debug('------------------ Start');
 $logger->debug('%s %s', $_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);
 $logger->debug('grommunio-dav version %s', GDAV_VERSION);
-$logger->debug('SabreDAV version %s',\Sabre\DAV\Version::VERSION);
+$logger->debug('SabreDAV version %s', \Sabre\DAV\Version::VERSION);
 
 $gdavBackend = new GrommunioDavBackend(new GLogger(('dav')));
 $authBackend = new AuthBasicBackend($gdavBackend);
 $authBackend->setRealm(SABRE_AUTH_REALM);
 $principalBackend = new PrincipalsBackend($gdavBackend);
-$gCarddavBackend  = new GrommunioCardDavBackend($gdavBackend, new GLogger('card'));
-$gCaldavBackend   = new GrommunioCalDavBackend($gdavBackend, new GLogger('cal'));
+$gCarddavBackend = new GrommunioCardDavBackend($gdavBackend, new GLogger('card'));
+$gCaldavBackend = new GrommunioCalDavBackend($gdavBackend, new GLogger('cal'));
 
 // Setting up the directory tree
-$nodes = array(
-    new \Sabre\DAVACL\PrincipalCollection($principalBackend),
-    new \Sabre\CardDAV\AddressBookRoot($principalBackend, $gCarddavBackend),
-    new \Sabre\CalDAV\CalendarRoot($principalBackend, $gCaldavBackend),
-);
+$nodes = [
+	new \Sabre\DAVACL\PrincipalCollection($principalBackend),
+	new \Sabre\CardDAV\AddressBookRoot($principalBackend, $gCarddavBackend),
+	new \Sabre\CalDAV\CalendarRoot($principalBackend, $gCaldavBackend),
+];
 
 // initialize the server
 $server = new \Sabre\DAV\Server($nodes);
@@ -76,11 +76,11 @@ $caldavPlugin = new \Sabre\CalDAV\Plugin();
 $server->addPlugin($caldavPlugin);
 
 if (strlen(SYNC_DB) > 0) {
-    $server->addPlugin(new \Sabre\DAV\Sync\Plugin());
+	$server->addPlugin(new \Sabre\DAV\Sync\Plugin());
 }
 
 if (DEVELOPER_MODE) {
-    $server->addPlugin(new \Sabre\DAV\Browser\Plugin(false));
+	$server->addPlugin(new \Sabre\DAV\Browser\Plugin(false));
 }
 
 $server->exec();
@@ -88,7 +88,11 @@ $server->exec();
 // Log outgoing data
 $logger->LogOutgoing($server->httpResponse);
 
-$logger->debug("httpcode='%s' memory='%s/%s' time='%ss'",
-                http_response_code(), $logger->FormatBytes(memory_get_peak_usage(false)), $logger->FormatBytes(memory_get_peak_usage(true)),
-                number_format(microtime(true) - $_SERVER["REQUEST_TIME_FLOAT"], 2));
+$logger->debug(
+	"httpcode='%s' memory='%s/%s' time='%ss'",
+	http_response_code(),
+	$logger->FormatBytes(memory_get_peak_usage(false)),
+	$logger->FormatBytes(memory_get_peak_usage(true)),
+	number_format(microtime(true) - $_SERVER["REQUEST_TIME_FLOAT"], 2)
+);
 $logger->debug('------------------ End');

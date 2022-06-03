@@ -13,55 +13,59 @@
  *   unsigned short       Data2;
  *   unsigned short       Data3;
  *   unsigned char        Data4[8];
- *  };
+ *  };.
  *
  * A GUID is normally represented in the following form:
  *     {00062008-0000-0000-C000-000000000046}
  *
- * @param String GUID
+ * @param string GUID
+ * @param mixed $guid
  */
-function makeGuid($guid)
-{
-    return pack("vvvv", hexdec(substr($guid, 5, 4)), hexdec(substr($guid, 1, 4)), hexdec(substr($guid, 10, 4)), hexdec(substr($guid, 15, 4))) . hex2bin(substr($guid, 20, 4)) . hex2bin(substr($guid, 25, 12));
+function makeGuid($guid) {
+	return pack("vvvv", hexdec(substr($guid, 5, 4)), hexdec(substr($guid, 1, 4)), hexdec(substr($guid, 10, 4)), hexdec(substr($guid, 15, 4))) . hex2bin(substr($guid, 20, 4)) . hex2bin(substr($guid, 25, 12));
 }
 
 /**
- * Function to get a human readable string from a MAPI error code
+ * Function to get a human readable string from a MAPI error code.
  *
  *@param int $errcode the MAPI error code, if not given, we use mapi_last_hresult
+ *
  *@return string The defined name for the MAPI error code
  */
-function get_mapi_error_name($errcode=null)
-{
-    if ($errcode === null){
-        $errcode = mapi_last_hresult();
-    }
+function get_mapi_error_name($errcode = null) {
+	if ($errcode === null) {
+		$errcode = mapi_last_hresult();
+	}
 
-    if ($errcode === 0)
-        return "NOERROR";
+	if ($errcode === 0) {
+		return "NOERROR";
+	}
 
-    // get_defined_constants(true) is preferred, but crashes PHP
-    // https://bugs.php.net/bug.php?id=61156
-    $allConstants = get_defined_constants();
+	// get_defined_constants(true) is preferred, but crashes PHP
+	// https://bugs.php.net/bug.php?id=61156
+	$allConstants = get_defined_constants();
 
-    foreach ($allConstants as $key => $value) {
-        /**
-         * If PHP encounters a number beyond the bounds of the integer type,
-         * it will be interpreted as a float instead, so when comparing these error codes
-         * we have to manually typecast value to integer, so float will be converted in integer,
-         * but still its out of bound for integer limit so it will be auto adjusted to minus value
-         */
-        if ($errcode != (int) $value)
-            continue;
-        // Check that we have an actual MAPI error or warning definition
-        $prefix = substr($key, 0, 7);
-        if ($prefix == "MAPI_E_" || $prefix == "MAPI_W_")
-            return $key;
-    }
+	foreach ($allConstants as $key => $value) {
+		/*
+		 * If PHP encounters a number beyond the bounds of the integer type,
+		 * it will be interpreted as a float instead, so when comparing these error codes
+		 * we have to manually typecast value to integer, so float will be converted in integer,
+		 * but still its out of bound for integer limit so it will be auto adjusted to minus value
+		 */
+		if ($errcode != (int) $value) {
+			continue;
+		}
+		// Check that we have an actual MAPI error or warning definition
+		$prefix = substr($key, 0, 7);
+		if ($prefix == "MAPI_E_" || $prefix == "MAPI_W_") {
+			return $key;
+		}
+	}
 
-    // error code not found, return hex value (this is a fix for 64-bit systems, we can't use the dechex() function for this)
-    $result = unpack("H*", pack("N", $errcode));
-    return "0x" . $result[1];
+	// error code not found, return hex value (this is a fix for 64-bit systems, we can't use the dechex() function for this)
+	$result = unpack("H*", pack("N", $errcode));
+
+	return "0x" . $result[1];
 }
 
 /**
@@ -70,60 +74,70 @@ function get_mapi_error_name($errcode=null)
  * properties.
  *
  * @returns array of properties
+ *
+ * @param mixed $store
+ * @param mixed $mapping
  */
-function getPropIdsFromStrings($store, $mapping)
-{
-    $props = array();
+function getPropIdsFromStrings($store, $mapping) {
+	$props = [];
 
-    $ids = array("name"=>array(), "id"=>array(), "guid"=>array(), "type"=>array()); // this array stores all the information needed to retrieve a named property
-    $num = 0;
+	$ids = ["name" => [], "id" => [], "guid" => [], "type" => []]; // this array stores all the information needed to retrieve a named property
+	$num = 0;
 
-    // caching
-    $guids = array();
+	// caching
+	$guids = [];
 
-    foreach($mapping as $name=>$val){
-        if (!is_string($val)) {
-            // not a named property
-            $props[$name] = $val;
-            continue;
-        }
-        $split = explode(":", $val);
-        if (count($split) != 3) { // invalid string, ignore
-            trigger_error(sprintf("Invalid property: %s \"%s\"", $name, $val), E_USER_NOTICE);
-            continue;
-        }
+	foreach ($mapping as $name => $val) {
+		if (!is_string($val)) {
+			// not a named property
+			$props[$name] = $val;
 
-        if (substr($split[2], 0, 2) == "0x")
-            $id = hexdec(substr($split[2], 2));
-        else
-            $id = $split[2];
+			continue;
+		}
+		$split = explode(":", $val);
+		if (count($split) != 3) { // invalid string, ignore
+			trigger_error(sprintf("Invalid property: %s \"%s\"", $name, $val), E_USER_NOTICE);
 
-        // have we used this guid before?
-        if (!defined($split[1])) {
-            if (!array_key_exists($split[1], $guids))
-                $guids[$split[1]] = makeguid($split[1]);
-            $guid = $guids[$split[1]];
-        } else {
-            $guid = constant($split[1]);
-        }
+			continue;
+		}
 
-        // temp store info about named prop, so we have to call mapi_getidsfromnames just one time
-        $ids["name"][$num] = $name;
-        $ids["id"][$num] = $id;
-        $ids["guid"][$num] = $guid;
-        $ids["type"][$num] = $split[0];
-        $num++;
-    }
+		if (substr($split[2], 0, 2) == "0x") {
+			$id = hexdec(substr($split[2], 2));
+		}
+		else {
+			$id = $split[2];
+		}
 
-    if (empty($ids["id"]))
-        return $props;
+		// have we used this guid before?
+		if (!defined($split[1])) {
+			if (!array_key_exists($split[1], $guids)) {
+				$guids[$split[1]] = makeguid($split[1]);
+			}
+			$guid = $guids[$split[1]];
+		}
+		else {
+			$guid = constant($split[1]);
+		}
 
-    // get the ids
-    $named = mapi_getidsfromnames($store, $ids["id"], $ids["guid"]);
-    foreach($named as $num=>$prop)
-        $props[$ids["name"][$num]] = mapi_prop_tag(constant($ids["type"][$num]), mapi_prop_id($prop));
+		// temp store info about named prop, so we have to call mapi_getidsfromnames just one time
+		$ids["name"][$num] = $name;
+		$ids["id"][$num] = $id;
+		$ids["guid"][$num] = $guid;
+		$ids["type"][$num] = $split[0];
+		++$num;
+	}
 
-    return $props;
+	if (empty($ids["id"])) {
+		return $props;
+	}
+
+	// get the ids
+	$named = mapi_getidsfromnames($store, $ids["id"], $ids["guid"]);
+	foreach ($named as $num => $prop) {
+		$props[$ids["name"][$num]] = mapi_prop_tag(constant($ids["type"][$num]), mapi_prop_id($prop));
+	}
+
+	return $props;
 }
 
 /**
@@ -131,40 +145,46 @@ function getPropIdsFromStrings($store, $mapping)
  * mapi_getprops function tries to get values of properties requested but somehow if
  * if a property value can not be fetched then it changes type of property tag as PT_ERROR
  * and returns error for that particular property, probable errors
- * that can be returned as value can be MAPI_E_NOT_FOUND, MAPI_E_NOT_ENOUGH_MEMORY
+ * that can be returned as value can be MAPI_E_NOT_FOUND, MAPI_E_NOT_ENOUGH_MEMORY.
  *
- * @param long $property Property to check for error
- * @param Array $propArray An array of properties
+ * @param long  $property  Property to check for error
+ * @param array $propArray An array of properties
+ *
  * @return mixed Gives back false when there is no error, if there is, gives the error
  */
-function propIsError($property, $propArray)
-{
-    if (array_key_exists(mapi_prop_tag(PT_ERROR, mapi_prop_id($property)), $propArray))
-        return $propArray[mapi_prop_tag(PT_ERROR, mapi_prop_id($property))];
-    return false;
+function propIsError($property, $propArray) {
+	if (array_key_exists(mapi_prop_tag(PT_ERROR, mapi_prop_id($property)), $propArray)) {
+		return $propArray[mapi_prop_tag(PT_ERROR, mapi_prop_id($property))];
+	}
+
+	return false;
 }
 
-/******** Macro Functions for PR_DISPLAY_TYPE_EX values *********/
+/* Macro Functions for PR_DISPLAY_TYPE_EX values */
 /**
- * check addressbook object is a remote mailuser
+ * check addressbook object is a remote mailuser.
+ *
+ * @param mixed $value
  */
 function DTE_IS_REMOTE_VALID($value) {
-    return !!($value & DTE_FLAG_REMOTE_VALID);
+	return (bool) ($value & DTE_FLAG_REMOTE_VALID);
 }
 
 /**
- * check addressbook object is able to receive permissions
+ * check addressbook object is able to receive permissions.
+ *
+ * @param mixed $value
  */
 function DTE_IS_ACL_CAPABLE($value) {
-    return !!($value & DTE_FLAG_ACL_CAPABLE);
+	return (bool) ($value & DTE_FLAG_ACL_CAPABLE);
 }
 
 function DTE_REMOTE($value) {
-    return (($value & DTE_MASK_REMOTE) >> 8);
+	return ($value & DTE_MASK_REMOTE) >> 8;
 }
 
 function DTE_LOCAL($value) {
-    return ($value & DTE_MASK_LOCAL);
+	return $value & DTE_MASK_LOCAL;
 }
 
 /**
@@ -183,198 +203,202 @@ function DTE_LOCAL($value) {
  * @param $rows array Array of rowdata as if they were returned directly from mapi_table_queryrows. Each recurring item is
  *                    expanded so that it seems that there are only many single appointments in the table.
  */
-function getCalendarItems($store, $calendar, $viewstart, $viewend, $propsrequested){
-    $result = array();
-    $properties = getPropIdsFromStrings($store, Array( "duedate" => "PT_SYSTIME:PSETID_Appointment:0x820e",
-                                               "startdate" =>  "PT_SYSTIME:PSETID_Appointment:0x820d",
-                                               "enddate_recurring" => "PT_SYSTIME:PSETID_Appointment:0x8236",
-                                               "recurring" => "PT_BOOLEAN:PSETID_Appointment:0x8223",
-                                               "recurring_data" => "PT_BINARY:PSETID_Appointment:0x8216",
-                                               "timezone_data" => "PT_BINARY:PSETID_Appointment:0x8233",
-                                               "label" => "PT_LONG:PSETID_Appointment:0x8214"
-                                                ));
+function getCalendarItems($store, $calendar, $viewstart, $viewend, $propsrequested) {
+	$result = [];
+	$properties = getPropIdsFromStrings($store, ["duedate" => "PT_SYSTIME:PSETID_Appointment:0x820e",
+		"startdate" => "PT_SYSTIME:PSETID_Appointment:0x820d",
+		"enddate_recurring" => "PT_SYSTIME:PSETID_Appointment:0x8236",
+		"recurring" => "PT_BOOLEAN:PSETID_Appointment:0x8223",
+		"recurring_data" => "PT_BINARY:PSETID_Appointment:0x8216",
+		"timezone_data" => "PT_BINARY:PSETID_Appointment:0x8233",
+		"label" => "PT_LONG:PSETID_Appointment:0x8214",
+	]);
 
-    // Create a restriction that will discard rows of appointments that are definitely not in our
-    // requested time frame
+	// Create a restriction that will discard rows of appointments that are definitely not in our
+	// requested time frame
 
-    $table = mapi_folder_getcontentstable($calendar);
+	$table = mapi_folder_getcontentstable($calendar);
 
-    $restriction =
-        // OR
-        Array(RES_OR,
-                 Array(
-                       Array(RES_AND,    // Normal items: itemEnd must be after viewStart, itemStart must be before viewEnd
-                             Array(
-                                   Array(RES_PROPERTY,
-                                         Array(RELOP => RELOP_GT,
-                                               ULPROPTAG => $properties["duedate"],
-                                               VALUE => $viewstart
-                                               )
-                                         ),
-                                   Array(RES_PROPERTY,
-                                         Array(RELOP => RELOP_LT,
-                                               ULPROPTAG => $properties["startdate"],
-                                               VALUE => $viewend
-                                               )
-                                         )
-                                   )
-                             ),
-                       // OR
-                       Array(RES_PROPERTY,
-                             Array(RELOP => RELOP_EQ,
-                                   ULPROPTAG => $properties["recurring"],
-                                   VALUE => true
-                                   )
-                             )
-                       ) // EXISTS OR
-                 );        // global OR
+	$restriction =
+		// OR
+		[RES_OR,
+			[
+				[RES_AND,    // Normal items: itemEnd must be after viewStart, itemStart must be before viewEnd
+					[
+						[RES_PROPERTY,
+							[RELOP => RELOP_GT,
+								ULPROPTAG => $properties["duedate"],
+								VALUE => $viewstart,
+							],
+						],
+						[RES_PROPERTY,
+							[RELOP => RELOP_LT,
+								ULPROPTAG => $properties["startdate"],
+								VALUE => $viewend,
+							],
+						],
+					],
+				],
+				// OR
+				[RES_PROPERTY,
+					[RELOP => RELOP_EQ,
+						ULPROPTAG => $properties["recurring"],
+						VALUE => true,
+					],
+				],
+			], // EXISTS OR
+		];        // global OR
 
-    // Get requested properties, plus whatever we need
-    $proplist = array(PR_ENTRYID, $properties["recurring"], $properties["recurring_data"], $properties["timezone_data"]);
-    $proplist = array_merge($proplist, $propsrequested);
-    $propslist = array_unique($proplist);
+	// Get requested properties, plus whatever we need
+	$proplist = [PR_ENTRYID, $properties["recurring"], $properties["recurring_data"], $properties["timezone_data"]];
+	$proplist = array_merge($proplist, $propsrequested);
+	$propslist = array_unique($proplist);
 
-    $rows = mapi_table_queryallrows($table, $proplist, $restriction);
+	$rows = mapi_table_queryallrows($table, $proplist, $restriction);
 
-    // $rows now contains all the items that MAY be in the window; a recurring item needs expansion before including in the output.
+	// $rows now contains all the items that MAY be in the window; a recurring item needs expansion before including in the output.
 
-    foreach($rows as $row) {
-        $items = array();
+	foreach ($rows as $row) {
+		$items = [];
 
-        if(isset($row[$properties["recurring"]]) && $row[$properties["recurring"]]) {
-            // Recurring item
-            $rec = new Recurrence($store, $row);
+		if (isset($row[$properties["recurring"]]) && $row[$properties["recurring"]]) {
+			// Recurring item
+			$rec = new Recurrence($store, $row);
 
-            // GetItems guarantees that the item overlaps the interval <$viewstart, $viewend>
-            $occurrences = $rec->getItems($viewstart, $viewend);
-            foreach($occurrences as $occurrence) {
-                // The occurrence takes all properties from the main row, but overrides some properties (like start and end obviously)
-                $item = $occurrence + $row;
-                array_push($items, $item);
-            }
+			// GetItems guarantees that the item overlaps the interval <$viewstart, $viewend>
+			$occurrences = $rec->getItems($viewstart, $viewend);
+			foreach ($occurrences as $occurrence) {
+				// The occurrence takes all properties from the main row, but overrides some properties (like start and end obviously)
+				$item = $occurrence + $row;
+				array_push($items, $item);
+			}
+		}
+		else {
+			// Normal item, it matched the search criteria and therefore overlaps the interval <$viewstart, $viewend>
+			array_push($items, $row);
+		}
 
-        } else {
-            // Normal item, it matched the search criteria and therefore overlaps the interval <$viewstart, $viewend>
-            array_push($items, $row);
-        }
+		$result = array_merge($result, $items);
+	}
 
-        $result = array_merge($result,$items);
-    }
-
-    // All items are guaranteed to overlap the interval <$viewstart, $viewend>. Note that we may be returning a few extra
-    // properties that the caller did not request (recurring, etc). This shouldn't be a problem though.
-    return $result;
+	// All items are guaranteed to overlap the interval <$viewstart, $viewend>. Note that we may be returning a few extra
+	// properties that the caller did not request (recurring, etc). This shouldn't be a problem though.
+	return $result;
 }
 
 /**
- * Get the main calendar
+ * Get the main calendar.
+ *
+ * @param mixed $store
  */
-function getCalendar($store)
-{
-    $inbox = mapi_msgstore_getreceivefolder($store);
-    $inboxprops = mapi_getprops($inbox, array(PR_IPM_APPOINTMENT_ENTRYID));
+function getCalendar($store) {
+	$inbox = mapi_msgstore_getreceivefolder($store);
+	$inboxprops = mapi_getprops($inbox, [PR_IPM_APPOINTMENT_ENTRYID]);
 
-    if(!isset($inboxprops[PR_IPM_APPOINTMENT_ENTRYID]))
-        return false;
+	if (!isset($inboxprops[PR_IPM_APPOINTMENT_ENTRYID])) {
+		return false;
+	}
 
-    $calendar = mapi_msgstore_openentry($store, $inboxprops[PR_IPM_APPOINTMENT_ENTRYID]);
-
-    return $calendar;
+	return mapi_msgstore_openentry($store, $inboxprops[PR_IPM_APPOINTMENT_ENTRYID]);
 }
 
 /**
- * Get the default store for this session
+ * Get the default store for this session.
+ *
+ * @param mixed $session
  */
-function getDefaultStore($session)
-{
-    $msgstorestable = mapi_getmsgstorestable($session);
+function getDefaultStore($session) {
+	$msgstorestable = mapi_getmsgstorestable($session);
 
-    $msgstores = mapi_table_queryallrows($msgstorestable, array(PR_DEFAULT_STORE, PR_ENTRYID));
+	$msgstores = mapi_table_queryallrows($msgstorestable, [PR_DEFAULT_STORE, PR_ENTRYID]);
 
-    foreach ($msgstores as $row) {
-        if($row[PR_DEFAULT_STORE]) {
-            $storeentryid = $row[PR_ENTRYID];
-            break;
-        }
-    }
+	foreach ($msgstores as $row) {
+		if ($row[PR_DEFAULT_STORE]) {
+			$storeentryid = $row[PR_ENTRYID];
 
-    if(!$storeentryid) {
-        print "Can't find default store\n";
-        return false;
-    }
+			break;
+		}
+	}
 
-    $store = mapi_openmsgstore($session, $storeentryid);
+	if (!$storeentryid) {
+		echo "Can't find default store\n";
 
-    return $store;
+		return false;
+	}
+
+	return mapi_openmsgstore($session, $storeentryid);
 }
 
-function forceUTF8($category)
-{
-    $old_locale = setlocale($category, "");
-    if(!isset($old_locale) || !$old_locale) {
-        print "Unable to initialize locale\n";
-        exit(1);
-    }
-    $dot = strpos($old_locale, ".");
-    if($dot) {
-        if(strrchr($old_locale, ".") == ".UTF-8" || strrchr($old_locale, ".") == ".utf8")
-            return true;
-        $old_locale = substr($old_locale, 0, $dot);
-    }
-    $new_locale = $old_locale . ".UTF-8";
-    $old_locale = setlocale($category, $new_locale);
-    if(!$old_locale) {
-        $new_locale = "en_US.UTF-8";
-        $old_locale = setlocale($category, $new_locale);
-    }
-    if(!$old_locale) {
-        print "Unable to set locale $new_locale\n";
-        exit(1);
-    }
+function forceUTF8($category) {
+	$old_locale = setlocale($category, "");
+	if (!isset($old_locale) || !$old_locale) {
+		echo "Unable to initialize locale\n";
 
-    return true;
+		exit(1);
+	}
+	$dot = strpos($old_locale, ".");
+	if ($dot) {
+		if (strrchr($old_locale, ".") == ".UTF-8" || strrchr($old_locale, ".") == ".utf8") {
+			return true;
+		}
+		$old_locale = substr($old_locale, 0, $dot);
+	}
+	$new_locale = $old_locale . ".UTF-8";
+	$old_locale = setlocale($category, $new_locale);
+	if (!$old_locale) {
+		$new_locale = "en_US.UTF-8";
+		$old_locale = setlocale($category, $new_locale);
+	}
+	if (!$old_locale) {
+		echo "Unable to set locale {$new_locale}\n";
+
+		exit(1);
+	}
+
+	return true;
 }
 
 if (!function_exists('mapi_zarafa_getuser_by_name')) {
-    /**
-     * Retrieve the user information.
-     *
-     * @param MAPIResource  $store
-     * @param string        $username
-     *
-     * @returns array
-     */
-    function mapi_zarafa_getuser_by_name($store, $username) {
-        $userInfo = get_user_info_by_name($username);
+	/**
+	 * Retrieve the user information.
+	 *
+	 * @param MAPIResource $store
+	 * @param string       $username
+	 *
+	 * @returns array
+	 */
+	function mapi_zarafa_getuser_by_name($store, $username) {
+		$userInfo = get_user_info_by_name($username);
 
-        if (!is_array($userInfo)) {
-            return false;
-        }
+		if (!is_array($userInfo)) {
+			return false;
+		}
 
-        return array(
-            'userid' => $userInfo['uid'],
-            'username' => $username,
-            'fullname' => $userInfo['real_name'],
-            'emailaddress' => $username,
-            'admin' => 0,
-            'nonactive' => 0,
-        );
-    }
+		return [
+			'userid' => $userInfo['uid'],
+			'username' => $username,
+			'fullname' => $userInfo['real_name'],
+			'emailaddress' => $username,
+			'admin' => 0,
+			'nonactive' => 0,
+		];
+	}
 }
 
 function getGoidFromUid($uid) {
-    return hex2bin("040000008200E00074C5B7101A82E0080000000000000000000000000000000000000000" .
-                bin2hex(pack("V", 12 + strlen($uid)) . "vCal-Uid" . pack("V", 1) . $uid));
+	return hex2bin("040000008200E00074C5B7101A82E0080000000000000000000000000000000000000000" .
+				bin2hex(pack("V", 12 + strlen($uid)) . "vCal-Uid" . pack("V", 1) . $uid));
 }
 
 function getUidFromGoid($goid) {
-    //check if "vCal-Uid" is somewhere in outlookid case-insensitive
-    $uid = stristr($goid, "vCal-Uid");
-    if ($uid !== false) {
-        //get the length of the ical id - go back 4 position from where "vCal-Uid" was found
-        $begin = unpack("V", substr($goid, strlen($uid) * (-1) - 4, 4));
-        //remove "vCal-Uid" and packed "1" and use the ical id length
-        return substr($uid, 12, ($begin[1] - 12));
-    }
-    return null;
+	// check if "vCal-Uid" is somewhere in outlookid case-insensitive
+	$uid = stristr($goid, "vCal-Uid");
+	if ($uid !== false) {
+		// get the length of the ical id - go back 4 position from where "vCal-Uid" was found
+		$begin = unpack("V", substr($goid, strlen($uid) * (-1) - 4, 4));
+		// remove "vCal-Uid" and packed "1" and use the ical id length
+		return substr($uid, 12, ($begin[1] - 12));
+	}
+
+	return null;
 }
