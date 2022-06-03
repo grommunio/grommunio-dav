@@ -16,28 +16,34 @@
 		 * Function will return display message of exception if its set by the callee.
 		 * if it is not set then we are generating some default display messages based
 		 * on mapi error code.
-		 * @return string returns error-message that should be sent to client to display.
+		 *
+		 * @return string returns error-message that should be sent to client to display
 		 */
-		public function getDisplayMessage()
-		{
-			if(!empty($this->displayMessage))
+		public function getDisplayMessage() {
+			if (!empty($this->displayMessage)) {
 				return $this->displayMessage;
+			}
 
-			switch($this->getCode())
-			{
+			switch ($this->getCode()) {
 			case MAPI_E_NO_ACCESS:
-				return dgettext("kopano","You have insufficient privileges to open this object.");
+				return dgettext("kopano", "You have insufficient privileges to open this object.");
+
 			case MAPI_E_LOGON_FAILED:
 			case MAPI_E_UNCONFIGURED:
 				return dgettext("kopano", "Logon Failed. Please check your username/password.");
+
 			case MAPI_E_NETWORK_ERROR:
 				return dgettext("kopano", "Can not connect to Kopano server.");
+
 			case MAPI_E_UNKNOWN_ENTRYID:
-				return dgettext("kopano","Can not open object with provided id.");
+				return dgettext("kopano", "Can not open object with provided id.");
+
 			case MAPI_E_NO_RECIPIENTS:
-				return dgettext("kopano","There are no recipients in the message.");
+				return dgettext("kopano", "There are no recipients in the message.");
+
 			case MAPI_E_NOT_FOUND:
-				return dgettext("kopano","Can not find object.");
+				return dgettext("kopano", "Can not find object.");
+
 			case MAPI_E_INTERFACE_NOT_SUPPORTED:
 			case MAPI_E_INVALID_PARAMETER:
 			case MAPI_E_INVALID_ENTRYID:
@@ -49,7 +55,7 @@
 			case MAPI_E_COLLISION:
 			case MAPI_E_UNCONFIGURED:
 			default:
-				return sprintf(dgettext("kopano","Unknown MAPI Error: %s"), get_mapi_error_name($this->getCode()));
+				return sprintf(dgettext("kopano", "Unknown MAPI Error: %s"), get_mapi_error_name($this->getCode()));
 			}
 		}
 	}

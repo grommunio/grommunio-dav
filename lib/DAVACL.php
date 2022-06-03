@@ -10,25 +10,24 @@
 namespace grommunio\DAV;
 
 class DAVACL extends \Sabre\DAVACL\Plugin {
-
-    /**
-     * Returns the full ACL list.
-     *
-     * Either a uri or a DAV\INode may be passed.
-     *
-     * null will be returned if the node doesn't support ACLs.
-     *
-     * @param string|DAV\INode $node
-     * @return array
-     */
-    public function getACL($node) {
-            $acl = array(
-                array(
-                    'privilege' => '{DAV:}all',
-                    'principal' => '{DAV:}authenticated',
-                    'protected' => true,
-                ),
-            );
-        return $acl;
-    }
+	/**
+	 * Returns the full ACL list.
+	 *
+	 * Either a uri or a DAV\INode may be passed.
+	 *
+	 * null will be returned if the node doesn't support ACLs.
+	 *
+	 * @param DAV\INode|string $node
+	 *
+	 * @return array
+	 */
+	public function getACL($node) {
+		return [
+			[
+				'privilege' => '{DAV:}all',
+				'principal' => '{DAV:}authenticated',
+				'protected' => true,
+			],
+		];
+	}
 }

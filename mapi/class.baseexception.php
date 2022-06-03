@@ -19,26 +19,25 @@
  */
 class BaseException extends Exception {
 	/**
-	 * Base name of the file, so we don't have to use static path of the file
+	 * Base name of the file, so we don't have to use static path of the file.
 	 */
-	private $baseFile = null;
+	private $baseFile;
 
 	/**
-	 * Flag to check if exception is already handled or not
+	 * Flag to check if exception is already handled or not.
 	 */
 	public $isHandled = false;
 
 	/**
 	 * The exception message to show at client side.
 	 */
-	public $displayMessage = null;
+	public $displayMessage;
 
 	/**
-	 * @param  string $errorMessage
-	 * @param  int $code
-	 * @param  Exception $previous
-	 * @param  string $displayMessage
-	 * @return void
+	 * @param string    $errorMessage
+	 * @param int       $code
+	 * @param Exception $previous
+	 * @param string    $displayMessage
 	 */
 	public function __construct($errorMessage, $code = 0, Exception $previous = null, $displayMessage = null) {
 		// assign display message
@@ -48,19 +47,17 @@ class BaseException extends Exception {
 	}
 
 	/**
-	 * @return string returns file name and line number combined where exception occurred.
+	 * @return string returns file name and line number combined where exception occurred
 	 */
-	public function getFileLine()
-	{
+	public function getFileLine() {
 		return $this->getBaseFile() . ':' . $this->getLine();
 	}
 
 	/**
 	 * @return string returns message that should be sent to client to display
 	 */
-	public function getDisplayMessage()
-	{
-		if(!is_null($this->displayMessage)) {
+	public function getDisplayMessage() {
+		if (!is_null($this->displayMessage)) {
 			return $this->displayMessage;
 		}
 
@@ -70,10 +67,10 @@ class BaseException extends Exception {
 	/**
 	 * Function sets display message of an exception that will be sent to the client side
 	 * to show it to user.
-	 * @param string $message display message.
+	 *
+	 * @param string $message display message
 	 */
-	public function setDisplayMessage($message)
-	{
+	public function setDisplayMessage($message) {
 		$this->displayMessage = $message;
 	}
 
@@ -82,17 +79,15 @@ class BaseException extends Exception {
 	 * so if it is caught again in the top level of function stack then we have to silently
 	 * ignore it.
 	 */
-	public function setHandled()
-	{
+	public function setHandled() {
 		$this->isHandled = true;
 	}
 
 	/**
-	 * @return string returns base path of the file where exception occurred.
+	 * @return string returns base path of the file where exception occurred
 	 */
-	public function getBaseFile()
-	{
-		if(is_null($this->baseFile)) {
+	public function getBaseFile() {
+		if (is_null($this->baseFile)) {
 			$this->baseFile = basename(parent::getFile());
 		}
 
@@ -105,12 +100,12 @@ class BaseException extends Exception {
 	 *
 	 * @return Exception returns previous exception
 	 */
-	public function _getPrevious()
-	{
-		if (version_compare(PHP_VERSION, '5.3.0', '<'))
+	public function _getPrevious() {
+		if (version_compare(PHP_VERSION, '5.3.0', '<')) {
 			return $this->_previous;
-		else
-			return parent::getPrevious();
+		}
+
+		return parent::getPrevious();
 	}
 
 	/**
@@ -118,13 +113,12 @@ class BaseException extends Exception {
 	 *
 	 * @return string
 	 */
-	public function __toString()
-	{
+	public function __toString() {
 		if (version_compare(PHP_VERSION, '5.3.0', '<')) {
 			if (($e = $this->getPrevious()) !== null) {
-				return $e->__toString()
-						. "\n\nNext "
-						. parent::__toString();
+				return $e->__toString() .
+						"\n\nNext " .
+						parent::__toString();
 			}
 		}
 
@@ -136,8 +130,7 @@ class BaseException extends Exception {
 	 *
 	 * @return string
 	 */
-	public function getName()
-	{
+	public function getName() {
 		return get_class($this);
 	}
 

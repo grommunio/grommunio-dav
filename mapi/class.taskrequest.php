@@ -70,9 +70,8 @@
 	define('tmrReceived', 2);	// Task Request received has multiple assignee
 
 	class TaskRequest {
-
 		// All recipient properties
-		var $recipprops = Array(PR_ENTRYID, PR_DISPLAY_NAME, PR_EMAIL_ADDRESS, PR_RECIPIENT_ENTRYID, PR_RECIPIENT_TYPE, PR_SEND_INTERNET_ENCODING, PR_SEND_RICH_INFO, PR_RECIPIENT_DISPLAY_NAME, PR_ADDRTYPE, PR_DISPLAY_TYPE, PR_RECIPIENT_TRACKSTATUS, PR_RECIPIENT_TRACKSTATUS_TIME, PR_RECIPIENT_FLAGS, PR_ROWID, PR_SEARCH_KEY);
+		public $recipprops = [PR_ENTRYID, PR_DISPLAY_NAME, PR_EMAIL_ADDRESS, PR_RECIPIENT_ENTRYID, PR_RECIPIENT_TYPE, PR_SEND_INTERNET_ENCODING, PR_SEND_RICH_INFO, PR_RECIPIENT_DISPLAY_NAME, PR_ADDRTYPE, PR_DISPLAY_TYPE, PR_RECIPIENT_TRACKSTATUS, PR_RECIPIENT_TRACKSTATUS_TIME, PR_RECIPIENT_FLAGS, PR_ROWID, PR_SEARCH_KEY];
 
 		/*
 		 * Constructs a TaskRequest object for the specified message. This can be either the task request
@@ -85,7 +84,7 @@
 		 * @param $message message MAPI Message to which the task request refers to (can be an email or a task)
 		 * @param $session session MAPI Session which is used to open tasks folders for delegated task requests or responses
 		 */
-		function __construct($store, $message, $session) {
+		public function __construct($store, $message, $session) {
 			$this->store = $store;
 			$this->message = $message;
 			$this->session = $session;
@@ -129,19 +128,20 @@
 
 		/* Return TRUE if the item is a task request message
 		 */
-		function isTaskRequest()
-		{
-			$props = mapi_getprops($this->message, Array(PR_MESSAGE_CLASS));
-			if (isset($props[PR_MESSAGE_CLASS]) && $props[PR_MESSAGE_CLASS] == "IPM.TaskRequest")
+		public function isTaskRequest() {
+			$props = mapi_getprops($this->message, [PR_MESSAGE_CLASS]);
+			if (isset($props[PR_MESSAGE_CLASS]) && $props[PR_MESSAGE_CLASS] == "IPM.TaskRequest") {
 				return true;
+			}
 		}
 
 		/* Return TRUE if the item is a task response message
 		 */
-		function isTaskRequestResponse() {
-			$props = mapi_getprops($this->message, Array(PR_MESSAGE_CLASS));
-			if (isset($props[PR_MESSAGE_CLASS]) && strpos($props[PR_MESSAGE_CLASS], "IPM.TaskRequest.") === 0)
+		public function isTaskRequestResponse() {
+			$props = mapi_getprops($this->message, [PR_MESSAGE_CLASS]);
+			if (isset($props[PR_MESSAGE_CLASS]) && strpos($props[PR_MESSAGE_CLASS], "IPM.TaskRequest.") === 0) {
 				return true;
+			}
 		}
 
 		/*
@@ -150,46 +150,47 @@
 		 * If the task does not exist yet, it is created, using the attachment object in the
 		 * task request item.
 		 */
-		function getAssociatedTask($create)
-		{
-			$props = mapi_getprops($this->message, array(PR_MESSAGE_CLASS, $this->props['taskglobalobjid']));
+		public function getAssociatedTask($create) {
+			$props = mapi_getprops($this->message, [PR_MESSAGE_CLASS, $this->props['taskglobalobjid']]);
 
-			if($props[PR_MESSAGE_CLASS] == "IPM.Task")
-				return $this->message; // Message itself is task, so return that
+			if ($props[PR_MESSAGE_CLASS] == "IPM.Task") {
+				return $this->message;
+			} // Message itself is task, so return that
 
 			$tfolder = $this->getDefaultTasksFolder();
 			$globalobjid = $props[$this->props['taskglobalobjid']];
 
 			// Find the task by looking for the taskglobalobjid
-			$restriction = array(RES_PROPERTY, array(RELOP => RELOP_EQ, ULPROPTAG => $this->props['taskglobalobjid'], VALUE => $globalobjid));
+			$restriction = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $this->props['taskglobalobjid'], VALUE => $globalobjid]];
 			$contents = mapi_folder_getcontentstable($tfolder);
-			$rows = mapi_table_queryallrows($contents, array(PR_ENTRYID), $restriction);
+			$rows = mapi_table_queryallrows($contents, [PR_ENTRYID], $restriction);
 			if (!empty($rows)) {
 				// If there are multiple, just use the first
 				$entryid = $rows[0][PR_ENTRYID];
 
 				$store = $this->getTaskFolderStore();
+
 				return mapi_msgstore_openentry($store, $entryid);
 			}
 			// None found, create one if possible
-			if(!$create)
+			if (!$create) {
 				return false;
+			}
 
 			$task = mapi_folder_createmessage($tfolder);
 
 			$sub = $this->getEmbeddedTask($this->message);
-			mapi_copyto($sub, array(), array(), $task);
+			mapi_copyto($sub, [], [], $task);
 
 			// Copy sender information from the e-mail
-			$senderprops = mapi_getprops($this->message, array(PR_SENT_REPRESENTING_NAME, PR_SENT_REPRESENTING_EMAIL_ADDRESS, PR_SENT_REPRESENTING_ENTRYID, PR_SENT_REPRESENTING_ADDRTYPE, PR_SENT_REPRESENTING_SEARCH_KEY));
+			$senderprops = mapi_getprops($this->message, [PR_SENT_REPRESENTING_NAME, PR_SENT_REPRESENTING_EMAIL_ADDRESS, PR_SENT_REPRESENTING_ENTRYID, PR_SENT_REPRESENTING_ADDRTYPE, PR_SENT_REPRESENTING_SEARCH_KEY]);
 			mapi_setprops($task, $senderprops);
 
-			$senderprops = mapi_getprops($this->message, array(PR_SENDER_NAME, PR_SENDER_EMAIL_ADDRESS, PR_SENDER_ENTRYID, PR_SENDER_ADDRTYPE, PR_SENDER_SEARCH_KEY));
+			$senderprops = mapi_getprops($this->message, [PR_SENDER_NAME, PR_SENDER_EMAIL_ADDRESS, PR_SENDER_ENTRYID, PR_SENDER_ADDRTYPE, PR_SENDER_SEARCH_KEY]);
 			mapi_setprops($task, $senderprops);
+
 			return $task;
 		}
-
-
 
 		// Organizer functions (called by the organizer)
 
@@ -198,51 +199,54 @@
 		 * - Task decline (task history is marked as declined)
 		 * - Task update (updates completion %, etc)
 		 */
-		function processTaskResponse() {
-			$messageprops = mapi_getprops($this->message, array(PR_PROCESSED));
-			if(isset($messageprops[PR_PROCESSED]) && $messageprops[PR_PROCESSED])
+		public function processTaskResponse() {
+			$messageprops = mapi_getprops($this->message, [PR_PROCESSED]);
+			if (isset($messageprops[PR_PROCESSED]) && $messageprops[PR_PROCESSED]) {
 				return true;
+			}
 
 			// Get the task for this response
 			$task = $this->getAssociatedTask(false);
 
-			if(!$task) {
+			if (!$task) {
 				// Got a response for a task that has been deleted, create a new one and mark it as such
 				$task = $this->getAssociatedTask(true);
 
 				// tdsNOM indicates a task request that had gone missing
-				mapi_setprops($task, array($this->props['taskstate'] => tdsNOM ));
+				mapi_setprops($task, [$this->props['taskstate'] => tdsNOM]);
 			}
 
 			// Get the embedded task information and copy it into our task
 			$sub = $this->getEmbeddedTask($this->message);
-			mapi_copyto($sub, array(), array($this->props['taskstate'], $this->props['taskhistory'], $this->props['taskmode'], $this->props['taskfcreator']), $task);
+			mapi_copyto($sub, [], [$this->props['taskstate'], $this->props['taskhistory'], $this->props['taskmode'], $this->props['taskfcreator']], $task);
 
-			$props = mapi_getprops($this->message, array(PR_MESSAGE_CLASS));
+			$props = mapi_getprops($this->message, [PR_MESSAGE_CLASS]);
 
 			// Set correct taskmode and taskhistory depending on response type
-			switch($props[PR_MESSAGE_CLASS]) {
-			case 'IPM.TaskRequest.Accept':
-				$taskhistory = thAccepted;
-				$taskstate = tdsACC;
-				$delegationstate =  olTaskDelegationAccepted;
-				break;
-			case 'IPM.TaskRequest.Decline':
-				$taskhistory = thDeclined;
-				$taskstate = tdsDEC;
-				$delegationstate =  olTaskDelegationDeclined;
-				break;
-			case 'IPM.TaskRequest.Update':
-				$taskhistory = thUpdated;
-				$taskstate = tdsACC; // Doesn't actually change anything
-				$delegationstate =  olTaskDelegationAccepted;
-				break;
+			switch ($props[PR_MESSAGE_CLASS]) {
+				case 'IPM.TaskRequest.Accept':
+					$taskhistory = thAccepted;
+					$taskstate = tdsACC;
+					$delegationstate = olTaskDelegationAccepted;
+					break;
+
+				case 'IPM.TaskRequest.Decline':
+					$taskhistory = thDeclined;
+					$taskstate = tdsDEC;
+					$delegationstate = olTaskDelegationDeclined;
+					break;
+
+				case 'IPM.TaskRequest.Update':
+					$taskhistory = thUpdated;
+					$taskstate = tdsACC; // Doesn't actually change anything
+					$delegationstate = olTaskDelegationAccepted;
+					break;
 			}
 
 			// Update taskstate (what the task looks like) and task history (last action done by the assignee)
-			mapi_setprops($task, array($this->props['taskhistory'] => $taskhistory, $this->props['taskstate'] => $taskstate, $this->props['delegationstate'] => $delegationstate, $this->props['ownership'] => olDelegatedTask));
+			mapi_setprops($task, [$this->props['taskhistory'] => $taskhistory, $this->props['taskstate'] => $taskstate, $this->props['delegationstate'] => $delegationstate, $this->props['ownership'] => olDelegatedTask]);
 
-			mapi_setprops($this->message, array(PR_PROCESSED => true));
+			mapi_setprops($this->message, [PR_PROCESSED => true]);
 			mapi_savechanges($task);
 
 			return true;
@@ -253,13 +257,13 @@
 		 * Takes the task passed in the constructor as the task to be sent; recipient should
 		 * be pre-existing. The task request will be sent to all recipients.
 		 */
-		function sendTaskRequest($prefix) {
+		public function sendTaskRequest($prefix) {
 			// Generate a TaskGlobalObjectId
 			$taskid = $this->createTGOID();
-			$messageprops = mapi_getprops($this->message, array(PR_SUBJECT));
+			$messageprops = mapi_getprops($this->message, [PR_SUBJECT]);
 
 			// Set properties on Task Request
-			mapi_setprops($this->message, array(
+			mapi_setprops($this->message, [
 				$this->props['taskglobalobjid'] => $taskid, /* our new taskglobalobjid */
 				$this->props['taskstate'] => tdsACC, 		/* state for our outgoing request */
 				$this->props['taskmode'] => tdmtNothing, 	/* we're not sending a change */
@@ -267,8 +271,8 @@
 				$this->props['delegationstate'] => olTaskDelegationUnknown, /* no reply yet */
 				$this->props['ownership'] => olDelegatedTask, /* Task has been assigned */
 				$this->props['taskhistory'] => thAssigned,	/* Task has been assigned */
-				PR_ICON_INDEX => 1283						/* Task request icon*/
-			));
+				PR_ICON_INDEX => 1283,						/* Task request icon */
+			]);
 			$this->setLastUser();
 			$this->setOwnerForAssignor();
 			mapi_savechanges($this->message);
@@ -276,17 +280,17 @@
 			// Create outgoing task request message
 			$outgoing = $this->createOutgoingMessage();
 			// No need to copy attachments as task will be attached as embedded message.
-			mapi_copyto($this->message, array(), array(PR_MESSAGE_ATTACHMENTS), $outgoing);
+			mapi_copyto($this->message, [], [PR_MESSAGE_ATTACHMENTS], $outgoing);
 
 			// Make it a task request, and put it in sent items after it is sent
-			mapi_setprops($outgoing, array(
+			mapi_setprops($outgoing, [
 				PR_MESSAGE_CLASS => "IPM.TaskRequest", 		/* class is task request */
 				$this->props['taskstate'] => tdsOWNNEW, 	/* for the recipient the task is new */
 				$this->props['taskmode'] => tdmtTaskReq,	/* for the recipient, it is a request */
 				$this->props['updatecount'] => 1,			/* version 2 is in the attachment */
 				PR_SUBJECT => $prefix . $messageprops[PR_SUBJECT],
 				PR_ICON_INDEX => 0xFFFFFFFF,				/* show assigned icon */
-			));
+			]);
 
 			// Set Body
 			$body = $this->getBody();
@@ -296,17 +300,18 @@
 			mapi_stream_commit($stream);
 
 			$attach = mapi_message_createattach($outgoing);
-			mapi_setprops($attach, array(PR_ATTACH_METHOD => ATTACH_EMBEDDED_MSG, PR_DISPLAY_NAME => $messageprops[PR_SUBJECT]));
+			mapi_setprops($attach, [PR_ATTACH_METHOD => ATTACH_EMBEDDED_MSG, PR_DISPLAY_NAME => $messageprops[PR_SUBJECT]]);
 
 			$sub = mapi_attach_openproperty($attach, PR_ATTACH_DATA_OBJ, IID_IMessage, 0, MAPI_MODIFY | MAPI_CREATE);
 
-			mapi_copyto($this->message, array(), array(), $sub);
+			mapi_copyto($this->message, [], [], $sub);
 			mapi_savechanges($sub);
 
 			mapi_savechanges($attach);
 
 			mapi_savechanges($outgoing);
 			mapi_message_submitmessage($outgoing);
+
 			return true;
 		}
 
@@ -316,12 +321,14 @@
 		 *
 		 * Must be called before each update to increase counter
 		 */
-		function updateTaskRequest() {
-			$messageprops = mapi_getprops($this->message, array($this->props['updatecount']));
-			if (isset($messageprops))
-				$messageprops[$this->props['updatecount']]++;
-			else
+		public function updateTaskRequest() {
+			$messageprops = mapi_getprops($this->message, [$this->props['updatecount']]);
+			if (isset($messageprops)) {
+				++$messageprops[$this->props['updatecount']];
+			}
+			else {
 				$messageprops[$this->props['updatecount']] = 1;
+			}
 
 			mapi_setprops($this->message, $messageprops);
 		}
@@ -331,16 +338,18 @@
 		 * Message passed should be an IPM.TaskRequest message. The task request is then processed to create
 		 * the task in the tasks folder if needed.
 		 */
-		function processTaskRequest() {
-			if(!$this->isTaskRequest())
+		public function processTaskRequest() {
+			if (!$this->isTaskRequest()) {
 				return false;
+			}
 
-			$messageprops = mapi_getprops($this->message, array(PR_PROCESSED));
-			if (isset($messageprops[PR_PROCESSED]) && $messageprops[PR_PROCESSED])
+			$messageprops = mapi_getprops($this->message, [PR_PROCESSED]);
+			if (isset($messageprops[PR_PROCESSED]) && $messageprops[PR_PROCESSED]) {
 				return true;
+			}
 
 			$task = $this->getAssociatedTask(true);
-			$taskProps = mapi_getprops($task, array($this->props['taskmultrecips']));
+			$taskProps = mapi_getprops($task, [$this->props['taskmultrecips']]);
 
 			// Set the task state to say that we're the attendee receiving the message, that we have not yet responded and that this message represents no change
 			$taskProps[$this->props["taskstate"]] = tdsOWN;
@@ -367,9 +376,9 @@
 
 			mapi_savechanges($task);
 
-			$taskprops = mapi_getprops($task, array(PR_ENTRYID));
+			$taskprops = mapi_getprops($task, [PR_ENTRYID]);
 
-			mapi_setprops($this->message, array(PR_PROCESSED => true));
+			mapi_setprops($this->message, [PR_PROCESSED => true]);
 			mapi_savechanges($this->message);
 
 			return $taskprops[PR_ENTRYID];
@@ -384,23 +393,24 @@
 		 *
 		 * @return entryid EntryID of the accepted task
 		 */
-		function doAccept($prefix) {
-			$messageprops = mapi_getprops($this->message, array($this->props['taskstate']));
+		public function doAccept($prefix) {
+			$messageprops = mapi_getprops($this->message, [$this->props['taskstate']]);
 
-			if(!isset($messageprops[$this->props['taskstate']]) || $messageprops[$this->props['taskstate']] != tdsOWN)
-				return false; // Can only accept assignee task
+			if (!isset($messageprops[$this->props['taskstate']]) || $messageprops[$this->props['taskstate']] != tdsOWN) {
+				return false;
+			} // Can only accept assignee task
 
 			$this->setLastUser();
 			$this->updateTaskRequest();
 
 			// Set as accepted
-			mapi_setprops($this->message, array($this->props['taskhistory'] => thAccepted, $this->props['assignedtime'] => time(), $this->props['taskaccepted'] => true,  $this->props['delegationstate'] => olTaskNotDelegated));
+			mapi_setprops($this->message, [$this->props['taskhistory'] => thAccepted, $this->props['assignedtime'] => time(), $this->props['taskaccepted'] => true,  $this->props['delegationstate'] => olTaskNotDelegated]);
 
 			mapi_savechanges($this->message);
 
 			$this->sendResponse(tdmtTaskAcc, $prefix);
 
-			//@TODO: delete received task request from Inbox
+			// @TODO: delete received task request from Inbox
 			return $this->deleteReceivedTR();
 		}
 
@@ -412,17 +422,18 @@
 		 *
 		 * @return boolean TRUE on success, FALSE on failure
 		 */
-		function doDecline($prefix) {
-			$messageprops = mapi_getprops($this->message, array($this->props['taskstate']));
+		public function doDecline($prefix) {
+			$messageprops = mapi_getprops($this->message, [$this->props['taskstate']]);
 
-			if(!isset($messageprops[$this->props['taskstate']]) || $messageprops[$this->props['taskstate']] != tdsOWN)
-				return false; // Can only decline assignee task
+			if (!isset($messageprops[$this->props['taskstate']]) || $messageprops[$this->props['taskstate']] != tdsOWN) {
+				return false;
+			} // Can only decline assignee task
 
 			$this->setLastUser();
 			$this->updateTaskRequest();
 
 			// Set as declined
-			mapi_setprops($this->message, array($this->props['taskhistory'] => thDeclined,  $this->props['delegationstate'] => olTaskDelegationDeclined));
+			mapi_setprops($this->message, [$this->props['taskhistory'] => thDeclined,  $this->props['delegationstate'] => olTaskDelegationDeclined]);
 
 			mapi_savechanges($this->message);
 
@@ -437,28 +448,30 @@
 		 *
 		 * @return boolean TRUE if the update succeeded, FALSE otherwise.
 		 */
-		function doUpdate($prefix, $prefixComplete) {
-			$messageprops = mapi_getprops($this->message, array($this->props['taskstate'], PR_SUBJECT));
+		public function doUpdate($prefix, $prefixComplete) {
+			$messageprops = mapi_getprops($this->message, [$this->props['taskstate'], PR_SUBJECT]);
 
-			if(!isset($messageprops[$this->props['taskstate']]) || $messageprops[$this->props['taskstate']] != tdsOWN)
-				return false; // Can only update assignee task
+			if (!isset($messageprops[$this->props['taskstate']]) || $messageprops[$this->props['taskstate']] != tdsOWN) {
+				return false;
+			} // Can only update assignee task
 
 			$this->setLastUser();
 			$this->updateTaskRequest();
 
 			// Set as updated
-			mapi_setprops($this->message, array($this->props['taskhistory'] => thUpdated));
+			mapi_setprops($this->message, [$this->props['taskhistory'] => thUpdated]);
 
 			mapi_savechanges($this->message);
 
-			$props = mapi_getprops($this->message, array($this->props['taskupdates'], $this->props['tasksoc'], $this->props['recurring'], $this->props['complete']));
-			if ($props[$this->props['taskupdates']] && !(isset($props[$this->props['recurring']]) && $props[$this->props['recurring']]))
+			$props = mapi_getprops($this->message, [$this->props['taskupdates'], $this->props['tasksoc'], $this->props['recurring'], $this->props['complete']]);
+			if ($props[$this->props['taskupdates']] && !(isset($props[$this->props['recurring']]) && $props[$this->props['recurring']])) {
 				$this->sendResponse(tdmtTaskUpd, $prefix);
+			}
 
-			if($props[$this->props['tasksoc']]  && $props[$this->props['complete']] ) {
+			if ($props[$this->props['tasksoc']] && $props[$this->props['complete']]) {
 				$outgoing = $this->createOutgoingMessage();
 
-				mapi_setprops($outgoing, array(PR_SUBJECT => $prefixComplete . $messageprops[PR_SUBJECT]));
+				mapi_setprops($outgoing, [PR_SUBJECT => $prefixComplete . $messageprops[PR_SUBJECT]]);
 
 				$this->setRecipientsForResponse($outgoing, tdmtTaskUpd, true);
 				$body = $this->getBody();
@@ -479,27 +492,32 @@
 		 * Normally this will just open the store that the processed message is in. However, if the message is opened
 		 * by a delegate, this function opens the store that the message was delegated from.
 		 */
-		function getTaskFolderStore()
-		{
+		public function getTaskFolderStore() {
 			$ownerentryid = false;
 
-			$rcvdprops = mapi_getprops($this->message, array(PR_RCVD_REPRESENTING_ENTRYID));
-			if (isset($rcvdprops[PR_RCVD_REPRESENTING_ENTRYID]))
+			$rcvdprops = mapi_getprops($this->message, [PR_RCVD_REPRESENTING_ENTRYID]);
+			if (isset($rcvdprops[PR_RCVD_REPRESENTING_ENTRYID])) {
 				$ownerentryid = $rcvdprops;
-			if (!$ownerentryid)
+			}
+			if (!$ownerentryid) {
 				return $this->store;
+			}
 			$ab = mapi_openaddressbook($session);
-			if (!$ab)
+			if (!$ab) {
 				return false;
+			}
 
 			$mailuser = mapi_ab_openentry($ab, $ownerentryid);
-			if (!$mailuser)
+			if (!$mailuser) {
 				return false;
-			$mailuserprops = mapi_getprops($mailuser, array(PR_EMAIL_ADDRESS));
-			if (!isset($mailuserprops[PR_EMAIL_ADDRESS]))
+			}
+			$mailuserprops = mapi_getprops($mailuser, [PR_EMAIL_ADDRESS]);
+			if (!isset($mailuserprops[PR_EMAIL_ADDRESS])) {
 				return false;
+			}
 
 			$storeid = mapi_msgstore_createentryid($this->store, $mailuserprops[PR_EMAIL_ADDRESS]);
+
 			return mapi_openmsgstore($this->session, $storeid);
 		}
 
@@ -507,28 +525,29 @@
 		 *
 		 * @param $ownerentryid (Optional)EntryID of user for which we are opening the task folder
 		 */
-		function getDefaultTasksFolder()
-		{
+		public function getDefaultTasksFolder() {
 			$store = $this->getTaskFolderStore();
 
 			$inbox = mapi_msgstore_getreceivefolder($store);
-			$inboxprops = mapi_getprops($inbox, Array(PR_IPM_TASK_ENTRYID));
-			if(!isset($inboxprops[PR_IPM_TASK_ENTRYID]))
+			$inboxprops = mapi_getprops($inbox, [PR_IPM_TASK_ENTRYID]);
+			if (!isset($inboxprops[PR_IPM_TASK_ENTRYID])) {
 				return false;
+			}
 
 			return mapi_msgstore_openentry($store, $inboxprops[PR_IPM_TASK_ENTRYID]);
 		}
 
-		function getSentReprProps($store)
-		{
-			$storeprops = mapi_getprops($store, array(PR_MAILBOX_OWNER_ENTRYID));
-			if(!isset($storeprops[PR_MAILBOX_OWNER_ENTRYID])) return false;
+		public function getSentReprProps($store) {
+			$storeprops = mapi_getprops($store, [PR_MAILBOX_OWNER_ENTRYID]);
+			if (!isset($storeprops[PR_MAILBOX_OWNER_ENTRYID])) {
+				return false;
+			}
 
 			$ab = mapi_openaddressbook($this->session);
 			$mailuser = mapi_ab_openentry($ab, $storeprops[PR_MAILBOX_OWNER_ENTRYID]);
-			$mailuserprops = mapi_getprops($mailuser, array(PR_ADDRTYPE, PR_EMAIL_ADDRESS, PR_DISPLAY_NAME, PR_SEARCH_KEY, PR_ENTRYID));
+			$mailuserprops = mapi_getprops($mailuser, [PR_ADDRTYPE, PR_EMAIL_ADDRESS, PR_DISPLAY_NAME, PR_SEARCH_KEY, PR_ENTRYID]);
 
-			$props = array();
+			$props = [];
 			$props[PR_SENT_REPRESENTING_ADDRTYPE] = $mailuserprops[PR_ADDRTYPE];
 			$props[PR_SENT_REPRESENTING_EMAIL_ADDRESS] = $mailuserprops[PR_EMAIL_ADDRESS];
 			$props[PR_SENT_REPRESENTING_NAME] = $mailuserprops[PR_DISPLAY_NAME];
@@ -542,24 +561,27 @@
 		 * Creates an outgoing message based on the passed message - will set delegate information
 		 * and sentmail folder
 		 */
-		function createOutgoingMessage()
-		{
+		public function createOutgoingMessage() {
 			// Open our default store for this user (that's the only store we can submit in)
 			$store = $this->getDefaultStore();
-			$storeprops = mapi_getprops($store, array(PR_IPM_OUTBOX_ENTRYID, PR_IPM_SENTMAIL_ENTRYID));
+			$storeprops = mapi_getprops($store, [PR_IPM_OUTBOX_ENTRYID, PR_IPM_SENTMAIL_ENTRYID]);
 
 			$outbox = mapi_msgstore_openentry($store, $storeprops[PR_IPM_OUTBOX_ENTRYID]);
-			if(!$outbox) return false;
+			if (!$outbox) {
+				return false;
+			}
 
 			$outgoing = mapi_folder_createmessage($outbox);
-			if(!$outgoing) return false;
+			if (!$outgoing) {
+				return false;
+			}
 
 			// Set SENT_REPRESENTING in case we're sending as a delegate
 			$ownerstore = $this->getTaskFolderStore();
 			$sentreprprops = $this->getSentReprProps($ownerstore);
 			mapi_setprops($outgoing, $sentreprprops);
 
-			mapi_setprops($outgoing, array(PR_SENTMAIL_ENTRYID => $storeprops[PR_IPM_SENTMAIL_ENTRYID]));
+			mapi_setprops($outgoing, [PR_SENTMAIL_ENTRYID => $storeprops[PR_IPM_SENTMAIL_ENTRYID]]);
 
 			return $outgoing;
 		}
@@ -570,33 +592,36 @@
 		 * @param $type int Type of response (tdmtTaskAcc, tdmtTaskDec, tdmtTaskUpd);
 		 * @return boolean TRUE on success
 		 */
-		function sendResponse($type, $prefix)
-		{
+		public function sendResponse($type, $prefix) {
 			// Create a message in our outbox
 			$outgoing = $this->createOutgoingMessage();
 
-			$messageprops = mapi_getprops($this->message, array(PR_SUBJECT));
+			$messageprops = mapi_getprops($this->message, [PR_SUBJECT]);
 
 			$attach = mapi_message_createattach($outgoing);
-			mapi_setprops($attach, array(PR_ATTACH_METHOD => ATTACH_EMBEDDED_MSG, PR_DISPLAY_NAME => $messageprops[PR_SUBJECT], PR_ATTACHMENT_HIDDEN => true));
+			mapi_setprops($attach, [PR_ATTACH_METHOD => ATTACH_EMBEDDED_MSG, PR_DISPLAY_NAME => $messageprops[PR_SUBJECT], PR_ATTACHMENT_HIDDEN => true]);
 			$sub = mapi_attach_openproperty($attach, PR_ATTACH_DATA_OBJ, IID_IMessage, 0, MAPI_CREATE | MAPI_MODIFY);
 
-			mapi_copyto($this->message, array(), array(PR_SENT_REPRESENTING_NAME, PR_SENT_REPRESENTING_EMAIL_ADDRESS, PR_SENT_REPRESENTING_ADDRTYPE, PR_SENT_REPRESENTING_ENTRYID, PR_SENT_REPRESENTING_SEARCH_KEY), $outgoing);
-			mapi_copyto($this->message, array(), array(), $sub);
+			mapi_copyto($this->message, [], [PR_SENT_REPRESENTING_NAME, PR_SENT_REPRESENTING_EMAIL_ADDRESS, PR_SENT_REPRESENTING_ADDRTYPE, PR_SENT_REPRESENTING_ENTRYID, PR_SENT_REPRESENTING_SEARCH_KEY], $outgoing);
+			mapi_copyto($this->message, [], [], $sub);
 
-			if (!$this->setRecipientsForResponse($outgoing, $type)) return false;
+			if (!$this->setRecipientsForResponse($outgoing, $type)) {
+				return false;
+			}
 
-			switch($type) {
-			case tdmtTaskAcc:
-				$messageclass = "IPM.TaskRequest.Accept";
-				break;
-			case tdmtTaskDec:
-				$messageclass = "IPM.TaskRequest.Decline";
-				break;
-			case tdmtTaskUpd:
-				$messageclass = "IPM.TaskRequest.Update";
-				break;
-			};
+			switch ($type) {
+				case tdmtTaskAcc:
+					$messageclass = "IPM.TaskRequest.Accept";
+					break;
+
+				case tdmtTaskDec:
+					$messageclass = "IPM.TaskRequest.Decline";
+					break;
+
+				case tdmtTaskUpd:
+					$messageclass = "IPM.TaskRequest.Update";
+					break;
+			}
 
 			mapi_savechanges($sub);
 			mapi_savechanges($attach);
@@ -609,11 +634,11 @@
 			mapi_stream_commit($stream);
 
 			// Set subject, taskmode, message class, icon index, response time
-			mapi_setprops($outgoing, array(PR_SUBJECT => $prefix . $messageprops[PR_SUBJECT],
-											$this->props['taskmode'] => $type,
-											PR_MESSAGE_CLASS => $messageclass,
-											PR_ICON_INDEX => 0xFFFFFFFF,
-											$this->props['assignedtime'] => time()));
+			mapi_setprops($outgoing, [PR_SUBJECT => $prefix . $messageprops[PR_SUBJECT],
+				$this->props['taskmode'] => $type,
+				PR_MESSAGE_CLASS => $messageclass,
+				PR_ICON_INDEX => 0xFFFFFFFF,
+				$this->props['assignedtime'] => time(), ]);
 
 			mapi_savechanges($outgoing);
 			mapi_message_submitmessage($outgoing);
@@ -621,13 +646,14 @@
 			return true;
 		}
 
-		function getDefaultStore()
-		{
+		public function getDefaultStore() {
 			$table = mapi_getmsgstorestable($this->session);
-			$rows = mapi_table_queryallrows($table, array(PR_DEFAULT_STORE, PR_ENTRYID));
-			foreach ($rows as $row)
-				if($row[PR_DEFAULT_STORE])
+			$rows = mapi_table_queryallrows($table, [PR_DEFAULT_STORE, PR_ENTRYID]);
+			foreach ($rows as $row) {
+				if ($row[PR_DEFAULT_STORE]) {
 					return mapi_openmsgstore($this->session, $row[PR_ENTRYID]);
+				}
+			}
 
 			return false;
 		}
@@ -636,57 +662,58 @@
 		 *
 		 * Just 16 bytes of random data
 		 */
-		function createTGOID()
-		{
+		public function createTGOID() {
 			$goid = "";
-			for ($i = 0; $i < 16; $i++)
+			for ($i = 0; $i < 16; ++$i) {
 				$goid .= chr(rand(0, 255));
+			}
+
 			return $goid;
 		}
 
-		function getEmbeddedTask($message) {
+		public function getEmbeddedTask($message) {
 			$table = mapi_message_getattachmenttable($message);
-			$rows = mapi_table_queryallrows($table, array(PR_ATTACH_NUM));
+			$rows = mapi_table_queryallrows($table, [PR_ATTACH_NUM]);
 
 			// Assume only one attachment
-			if(empty($rows))
+			if (empty($rows)) {
 				return false;
+			}
 
 			$attach = mapi_message_openattach($message, $rows[0][PR_ATTACH_NUM]);
-			$message = mapi_openproperty($attach, PR_ATTACH_DATA_OBJ, IID_IMessage, 0, 0);
 
-			return $message;
+			return mapi_openproperty($attach, PR_ATTACH_DATA_OBJ, IID_IMessage, 0, 0);
 		}
 
-		function setLastUser() {
+		public function setLastUser() {
 			$delegatestore = $this->getDefaultStore();
 			$taskstore = $this->getTaskFolderStore();
 
-			$delegateprops = mapi_getprops($delegatestore, array(PR_MAILBOX_OWNER_NAME));
-			$taskprops = mapi_getprops($taskstore, array(PR_MAILBOX_OWNER_NAME));
+			$delegateprops = mapi_getprops($delegatestore, [PR_MAILBOX_OWNER_NAME]);
+			$taskprops = mapi_getprops($taskstore, [PR_MAILBOX_OWNER_NAME]);
 
 			// The owner of the task
 			$username = $delegateprops[PR_MAILBOX_OWNER_NAME];
 			// This is me (the one calling the script)
 			$delegate = $taskprops[PR_MAILBOX_OWNER_NAME];
 
-			mapi_setprops($this->message, array($this->props["tasklastuser"] => $username, $this->props["tasklastdelegate"] => $delegate, $this->props['assignedtime'] => time()));
+			mapi_setprops($this->message, [$this->props["tasklastuser"] => $username, $this->props["tasklastdelegate"] => $delegate, $this->props['assignedtime'] => time()]);
 		}
 
 		/** Assignee becomes the owner when a user/assignor assigns any task to someone. Also there can be more than one assignee.
 		 * This function sets assignee as owner in the assignor's copy of task.
 		 */
-		function setOwnerForAssignor()
-		{
+		public function setOwnerForAssignor() {
 			$recipTable = mapi_message_getrecipienttable($this->message);
-			$recips = mapi_table_queryallrows($recipTable, array(PR_DISPLAY_NAME));
+			$recips = mapi_table_queryallrows($recipTable, [PR_DISPLAY_NAME]);
 
 			if (!empty($recips)) {
-				$owner = array();
-				foreach ($recips as $value)
+				$owner = [];
+				foreach ($recips as $value) {
 					$owner[] = $value[PR_DISPLAY_NAME];
+				}
 
-				$props = array($this->props['owner'] => implode("; ", $owner));
+				$props = [$this->props['owner'] => implode("; ", $owner)];
 				mapi_setprops($this->message, $props);
 			}
 		}
@@ -699,35 +726,35 @@
 		 *
 		 * @param $task message MAPI message which is the assignee's copy of the task
 		 */
-		function setAssignorInRecipients($task)
-		{
+		public function setAssignorInRecipients($task) {
 			$recipTable = mapi_message_getrecipienttable($task);
 
 			// Delete all MAPI_TO recipients
-			$recips = mapi_table_queryallrows($recipTable, array(PR_ROWID), array(RES_PROPERTY,
-																				array(	RELOP => RELOP_EQ,
-																						ULPROPTAG => PR_RECIPIENT_TYPE,
-																						VALUE => MAPI_TO
-																				)));
-			foreach($recips as $recip)
-				mapi_message_modifyrecipients($task, MODRECIP_REMOVE, array($recip));
+			$recips = mapi_table_queryallrows($recipTable, [PR_ROWID], [RES_PROPERTY,
+				[RELOP => RELOP_EQ,
+					ULPROPTAG => PR_RECIPIENT_TYPE,
+					VALUE => MAPI_TO,
+				], ]);
+			foreach ($recips as $recip) {
+				mapi_message_modifyrecipients($task, MODRECIP_REMOVE, [$recip]);
+			}
 
-			$recips = array();
-			$taskReqProps = mapi_getprops($this->message, array(PR_SENT_REPRESENTING_NAME, PR_SENT_REPRESENTING_EMAIL_ADDRESS, PR_SENT_REPRESENTING_ENTRYID, PR_SENT_REPRESENTING_ADDRTYPE));
-			$associatedTaskProps = mapi_getprops($task, array($this->props['taskupdates'], $this->props['tasksoc'], $this->props['taskmultrecips']));
+			$recips = [];
+			$taskReqProps = mapi_getprops($this->message, [PR_SENT_REPRESENTING_NAME, PR_SENT_REPRESENTING_EMAIL_ADDRESS, PR_SENT_REPRESENTING_ENTRYID, PR_SENT_REPRESENTING_ADDRTYPE]);
+			$associatedTaskProps = mapi_getprops($task, [$this->props['taskupdates'], $this->props['tasksoc'], $this->props['taskmultrecips']]);
 
 			// Build assignor info
-			$assignor = array(	PR_ENTRYID => $taskReqProps[PR_SENT_REPRESENTING_ENTRYID],
-								PR_DISPLAY_NAME => $taskReqProps[PR_SENT_REPRESENTING_NAME],
-								PR_EMAIL_ADDRESS => $taskReqProps[PR_SENT_REPRESENTING_EMAIL_ADDRESS],
-								PR_RECIPIENT_DISPLAY_NAME => $taskReqProps[PR_SENT_REPRESENTING_NAME],
-								PR_ADDRTYPE => empty($taskReqProps[PR_SENT_REPRESENTING_ADDRTYPE]) ? 'SMTP' : $taskReqProps[PR_SENT_REPRESENTING_ADDRTYPE],
-								PR_RECIPIENT_FLAGS => recipSendable
-						);
+			$assignor = [PR_ENTRYID => $taskReqProps[PR_SENT_REPRESENTING_ENTRYID],
+				PR_DISPLAY_NAME => $taskReqProps[PR_SENT_REPRESENTING_NAME],
+				PR_EMAIL_ADDRESS => $taskReqProps[PR_SENT_REPRESENTING_EMAIL_ADDRESS],
+				PR_RECIPIENT_DISPLAY_NAME => $taskReqProps[PR_SENT_REPRESENTING_NAME],
+				PR_ADDRTYPE => empty($taskReqProps[PR_SENT_REPRESENTING_ADDRTYPE]) ? 'SMTP' : $taskReqProps[PR_SENT_REPRESENTING_ADDRTYPE],
+				PR_RECIPIENT_FLAGS => recipSendable,
+			];
 
 			// Assignor has requested task updates, so set him/her as MAPI_CC in recipienttable.
-			if ((isset($associatedTaskProps[$this->props['taskupdates']]) && $associatedTaskProps[$this->props['taskupdates']])
-				&& !(isset($associatedTaskProps[$this->props['taskmultrecips']]) && $associatedTaskProps[$this->props['taskmultrecips']] == tmrReceived)) {
+			if ((isset($associatedTaskProps[$this->props['taskupdates']]) && $associatedTaskProps[$this->props['taskupdates']]) &&
+				!(isset($associatedTaskProps[$this->props['taskmultrecips']]) && $associatedTaskProps[$this->props['taskmultrecips']] == tmrReceived)) {
 				$assignor[PR_RECIPIENT_TYPE] = MAPI_CC;
 				$recips[] = $assignor;
 			}
@@ -738,69 +765,73 @@
 				$recips[] = $assignor;
 			}
 
-			if (!empty($recips))
+			if (!empty($recips)) {
 				mapi_message_modifyrecipients($task, MODRECIP_ADD, $recips);
+			}
 		}
 
-		/** Returns user information who has task request
+		/** Returns user information who has task request.
 		 */
-		function retrieveUserData()
-		{
+		public function retrieveUserData() {
 			// get user entryid
-			$storeProps = mapi_getprops($this->store, array(PR_USER_ENTRYID));
-			if (!$storeProps[PR_USER_ENTRYID])	return false;
+			$storeProps = mapi_getprops($this->store, [PR_USER_ENTRYID]);
+			if (!$storeProps[PR_USER_ENTRYID]) {
+				return false;
+			}
 
 			$ab = mapi_openaddressbook($this->session);
 			// open the user entry
 			$user = mapi_ab_openentry($ab, $storeProps[PR_USER_ENTRYID]);
-			if (!$user) return false;
+			if (!$user) {
+				return false;
+			}
 
 			// receive userdata
-			$userProps = mapi_getprops($user, array(PR_DISPLAY_NAME));
-			if (!$userProps[PR_DISPLAY_NAME]) return false;
+			$userProps = mapi_getprops($user, [PR_DISPLAY_NAME]);
+			if (!$userProps[PR_DISPLAY_NAME]) {
+				return false;
+			}
 
 			return $userProps;
 		}
 
-		/** Deletes incoming task request from Inbox
+		/** Deletes incoming task request from Inbox.
 		 *
 		 * @returns array returns PR_ENTRYID, PR_STORE_ENTRYID and PR_PARENT_ENTRYID of the deleted task request
 		 */
-		function deleteReceivedTR()
-		{
+		public function deleteReceivedTR() {
 			$store = $this->getTaskFolderStore();
 			$inbox = mapi_msgstore_getreceivefolder($store);
 
-			$storeProps = mapi_getprops($store, array(PR_IPM_WASTEBASKET_ENTRYID));
-			$props = mapi_getprops($this->message, array($this->props['taskglobalobjid']));
+			$storeProps = mapi_getprops($store, [PR_IPM_WASTEBASKET_ENTRYID]);
+			$props = mapi_getprops($this->message, [$this->props['taskglobalobjid']]);
 			$globalobjid = $props[$this->props['taskglobalobjid']];
 
 			// Find the task by looking for the taskglobalobjid
-			$restriction = array(RES_PROPERTY, array(RELOP => RELOP_EQ, ULPROPTAG => $this->props['taskglobalobjid'], VALUE => $globalobjid));
+			$restriction = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $this->props['taskglobalobjid'], VALUE => $globalobjid]];
 
 			$contents = mapi_folder_getcontentstable($inbox);
 
-			$rows = mapi_table_queryallrows($contents, array(PR_ENTRYID, PR_PARENT_ENTRYID, PR_STORE_ENTRYID), $restriction);
+			$rows = mapi_table_queryallrows($contents, [PR_ENTRYID, PR_PARENT_ENTRYID, PR_STORE_ENTRYID], $restriction);
 
 			$taskrequest = false;
-			if(!empty($rows)) {
+			if (!empty($rows)) {
 				// If there are multiple, just use the first
 				$entryid = $rows[0][PR_ENTRYID];
 				$wastebasket = mapi_msgstore_openentry($store, $storeProps[PR_IPM_WASTEBASKET_ENTRYID]);
-				mapi_folder_copymessages($inbox, Array($entryid), $wastebasket, MESSAGE_MOVE);
+				mapi_folder_copymessages($inbox, [$entryid], $wastebasket, MESSAGE_MOVE);
 
-				return array(PR_ENTRYID => $entryid, PR_PARENT_ENTRYID => $rows[0][PR_PARENT_ENTRYID], PR_STORE_ENTRYID => $rows[0][PR_STORE_ENTRYID]);
+				return [PR_ENTRYID => $entryid, PR_PARENT_ENTRYID => $rows[0][PR_PARENT_ENTRYID], PR_STORE_ENTRYID => $rows[0][PR_STORE_ENTRYID]];
 			}
 
 			return false;
 		}
 
-		/** Converts already sent task request to normal task
+		/** Converts already sent task request to normal task.
 		 */
-		function createUnassignedCopy()
-		{
-			mapi_deleteprops($this->message, array($this->props['taskglobalobjid']));
-			mapi_setprops($this->message, array($this->props['updatecount'] => 1));
+		public function createUnassignedCopy() {
+			mapi_deleteprops($this->message, [$this->props['taskglobalobjid']]);
+			mapi_setprops($this->message, [$this->props['updatecount'] => 1]);
 
 			// Remove all recipents
 			$this->deleteAllRecipients($this->message);
@@ -814,136 +845,166 @@
 		 *
 		 *@param $outgoing MAPI_message outgoing mapi message
 		 *@param $responseType String response type
-		 *@param $sendSOC Boolean true if sending complete response else false.
+		 *@param $sendSOC Boolean true if sending complete response else false
 		 */
-		function setRecipientsForResponse($outgoing, $responseType, $sendSOC = false)
-		{
+		public function setRecipientsForResponse($outgoing, $responseType, $sendSOC = false) {
 			// Clear recipients from outgoing msg
 			$this->deleteAllRecipients($outgoing);
 
 			// If it is a task update then get MAPI_CC recipients which are assignors who has asked for task update.
 			if ($responseType == tdmtTaskUpd) {
 				$recipTable = mapi_message_getrecipienttable($this->message);
-				$recips = mapi_table_queryallrows($recipTable, $this->recipprops, array(RES_PROPERTY,
-																						array(	RELOP => RELOP_EQ,
-																								ULPROPTAG => PR_RECIPIENT_TYPE,
-																								VALUE => ($sendSOC ? MAPI_BCC : MAPI_CC)
-																						)
-												));
+				$recips = mapi_table_queryallrows($recipTable, $this->recipprops, [RES_PROPERTY,
+					[RELOP => RELOP_EQ,
+						ULPROPTAG => PR_RECIPIENT_TYPE,
+						VALUE => ($sendSOC ? MAPI_BCC : MAPI_CC),
+					],
+				]);
 
 				// No recipients found, return error
-				if (empty($recips))
+				if (empty($recips)) {
 					return false;
-
-				foreach($recips as $recip) {
-					$recip[PR_RECIPIENT_TYPE] = MAPI_TO;	// Change recipient type to MAPI_TO
-					mapi_message_modifyrecipients($outgoing, MODRECIP_ADD, array($recip));
 				}
+
+				foreach ($recips as $recip) {
+					$recip[PR_RECIPIENT_TYPE] = MAPI_TO;	// Change recipient type to MAPI_TO
+					mapi_message_modifyrecipients($outgoing, MODRECIP_ADD, [$recip]);
+				}
+
 				return true;
 			}
 
-			$orgprops = mapi_getprops($this->message, array(PR_SENT_REPRESENTING_NAME, PR_SENT_REPRESENTING_EMAIL_ADDRESS, PR_SENT_REPRESENTING_ADDRTYPE, PR_SENT_REPRESENTING_ENTRYID, PR_SUBJECT));
-			$recip = array(PR_DISPLAY_NAME => $orgprops[PR_SENT_REPRESENTING_NAME], PR_EMAIL_ADDRESS => $orgprops[PR_SENT_REPRESENTING_EMAIL_ADDRESS], PR_ADDRTYPE => $orgprops[PR_SENT_REPRESENTING_ADDRTYPE], PR_ENTRYID => $orgprops[PR_SENT_REPRESENTING_ENTRYID], PR_RECIPIENT_TYPE => MAPI_TO);
+			$orgprops = mapi_getprops($this->message, [PR_SENT_REPRESENTING_NAME, PR_SENT_REPRESENTING_EMAIL_ADDRESS, PR_SENT_REPRESENTING_ADDRTYPE, PR_SENT_REPRESENTING_ENTRYID, PR_SUBJECT]);
+			$recip = [PR_DISPLAY_NAME => $orgprops[PR_SENT_REPRESENTING_NAME], PR_EMAIL_ADDRESS => $orgprops[PR_SENT_REPRESENTING_EMAIL_ADDRESS], PR_ADDRTYPE => $orgprops[PR_SENT_REPRESENTING_ADDRTYPE], PR_ENTRYID => $orgprops[PR_SENT_REPRESENTING_ENTRYID], PR_RECIPIENT_TYPE => MAPI_TO];
 
-			mapi_message_modifyrecipients($outgoing, MODRECIP_ADD, array($recip));
+			mapi_message_modifyrecipients($outgoing, MODRECIP_ADD, [$recip]);
 
 			return true;
 		}
 
 		/** Adds task details to message body and returns body.
 		 *
-		 *@return string constructed body with task details.
+		 *@return string constructed body with task details
 		 */
-		function getBody()
-		{
-			//@TODO: Fix translations
+		public function getBody() {
+			// @TODO: Fix translations
 
 			$msgProps = mapi_getprops($this->message);
 			$body = "";
 
-			if (isset($msgProps[PR_SUBJECT])) $body .= "\n" . dgettext("kopano","Subject") . ":\t". $msgProps[PR_SUBJECT];
-			if (isset($msgProps[$this->props['startdate']])) $body .= "\n" . dgettext("kopano","Start Date") . ":\t". strftime(dgettext("kopano","%A, %B %d, %Y"),$msgProps[$this->props['startdate']]);
-			if (isset($msgProps[$this->props['duedate']])) $body .= "\n" . dgettext("kopano","Due Date") . ":\t". strftime(dgettext("kopano","%A, %B %d, %Y"),$msgProps[$this->props['duedate']]);
+			if (isset($msgProps[PR_SUBJECT])) {
+				$body .= "\n" . dgettext("kopano", "Subject") . ":\t" . $msgProps[PR_SUBJECT];
+			}
+			if (isset($msgProps[$this->props['startdate']])) {
+				$body .= "\n" . dgettext("kopano", "Start Date") . ":\t" . strftime(dgettext("kopano", "%A, %B %d, %Y"), $msgProps[$this->props['startdate']]);
+			}
+			if (isset($msgProps[$this->props['duedate']])) {
+				$body .= "\n" . dgettext("kopano", "Due Date") . ":\t" . strftime(dgettext("kopano", "%A, %B %d, %Y"), $msgProps[$this->props['duedate']]);
+			}
 			$body .= "\n";
 
 			if (isset($msgProps[$this->props['status']])) {
-				$body .= "\n" . dgettext("kopano","Status") . ":\t";
-				if ($msgProps[$this->props['status']] == 0) $body .= dgettext("kopano","Not Started");
-				else if ($msgProps[$this->props['status']] == 1) $body .= dgettext("kopano","In Progress");
-				else if ($msgProps[$this->props['status']] == 2) $body .= dgettext("kopano","Complete");
-				else if ($msgProps[$this->props['status']] == 3) $body .= dgettext("kopano","Wait for other person");
-				else if ($msgProps[$this->props['status']] == 4) $body .= dgettext("kopano","Deferred");
+				$body .= "\n" . dgettext("kopano", "Status") . ":\t";
+				if ($msgProps[$this->props['status']] == 0) {
+					$body .= dgettext("kopano", "Not Started");
+				}
+				elseif ($msgProps[$this->props['status']] == 1) {
+					$body .= dgettext("kopano", "In Progress");
+				}
+				elseif ($msgProps[$this->props['status']] == 2) {
+					$body .= dgettext("kopano", "Complete");
+				}
+				elseif ($msgProps[$this->props['status']] == 3) {
+					$body .= dgettext("kopano", "Wait for other person");
+				}
+				elseif ($msgProps[$this->props['status']] == 4) {
+					$body .= dgettext("kopano", "Deferred");
+				}
 			}
 
 			if (isset($msgProps[$this->props['percent_complete']])) {
-				$body .= "\n" . dgettext("kopano","Percent Complete") . ":\t". ($msgProps[$this->props['percent_complete']] * 100).'%';
+				$body .= "\n" . dgettext("kopano", "Percent Complete") . ":\t" . ($msgProps[$this->props['percent_complete']] * 100) . '%';
 
-				if ($msgProps[$this->props['percent_complete']] == 1 && isset($msgProps[$this->props['datecompleted']]))
-					$body .= "\n" . dgettext("kopano","Date Completed") . ":\t". strftime("%A, %B %d, %Y",$msgProps[$this->props['datecompleted']]);
+				if ($msgProps[$this->props['percent_complete']] == 1 && isset($msgProps[$this->props['datecompleted']])) {
+					$body .= "\n" . dgettext("kopano", "Date Completed") . ":\t" . strftime("%A, %B %d, %Y", $msgProps[$this->props['datecompleted']]);
+				}
 			}
 			$body .= "\n";
 
-			if (isset($msgProps[$this->props['totalwork']])) $body .= "\n" . dgettext("kopano","Total Work") . ":\t". ($msgProps[$this->props['totalwork']]/60) ." " . dgettext("kopano","hours");
-			if (isset($msgProps[$this->props['actualwork']])) $body .= "\n" . dgettext("kopano","Actual Work") . ":\t". ($msgProps[$this->props['actualwork']]/60) ." " . dgettext("kopano","hours");
-			$body .="\n";
+			if (isset($msgProps[$this->props['totalwork']])) {
+				$body .= "\n" . dgettext("kopano", "Total Work") . ":\t" . ($msgProps[$this->props['totalwork']] / 60) . " " . dgettext("kopano", "hours");
+			}
+			if (isset($msgProps[$this->props['actualwork']])) {
+				$body .= "\n" . dgettext("kopano", "Actual Work") . ":\t" . ($msgProps[$this->props['actualwork']] / 60) . " " . dgettext("kopano", "hours");
+			}
+			$body .= "\n";
 
-			if (isset($msgProps[$this->props['owner']])) $body .= "\n" . dgettext("kopano","Owner") . ":\t". $msgProps[$this->props['owner']];
-			$body .="\n";
+			if (isset($msgProps[$this->props['owner']])) {
+				$body .= "\n" . dgettext("kopano", "Owner") . ":\t" . $msgProps[$this->props['owner']];
+			}
+			$body .= "\n";
 
-			if (isset($msgProps[$this->props['categories']]) && !empty($msgProps[$this->props['categories']])) $body .= "\nCategories:\t". implode(', ', $msgProps[$this->props['categories']]);
-			if (isset($msgProps[$this->props['companies']]) && !empty($msgProps[$this->props['companies']])) $body .= "\nCompany:\t". implode(', ', $msgProps[$this->props['companies']]);
-			if (isset($msgProps[$this->props['billinginformation']])) $body .= "\n" . dgettext("kopano","Billing Information") . ":\t". $msgProps[$this->props['billinginformation']];
-			if (isset($msgProps[$this->props['mileage']])) $body .= "\n" . dgettext("kopano","Mileage") . ":\t". $msgProps[$this->props['mileage']];
-			$body .="\n";
+			if (isset($msgProps[$this->props['categories']]) && !empty($msgProps[$this->props['categories']])) {
+				$body .= "\nCategories:\t" . implode(', ', $msgProps[$this->props['categories']]);
+			}
+			if (isset($msgProps[$this->props['companies']]) && !empty($msgProps[$this->props['companies']])) {
+				$body .= "\nCompany:\t" . implode(', ', $msgProps[$this->props['companies']]);
+			}
+			if (isset($msgProps[$this->props['billinginformation']])) {
+				$body .= "\n" . dgettext("kopano", "Billing Information") . ":\t" . $msgProps[$this->props['billinginformation']];
+			}
+			if (isset($msgProps[$this->props['mileage']])) {
+				$body .= "\n" . dgettext("kopano", "Mileage") . ":\t" . $msgProps[$this->props['mileage']];
+			}
+			$body .= "\n";
 
 			$content = mapi_message_openproperty($this->message, PR_BODY);
-			$body .= "\n". trim($content, "\0");
+			$body .= "\n" . trim($content, "\0");
 
 			return $body;
 		}
 
-		/** Reclaims ownership of a decline task
+		/** Reclaims ownership of a decline task.
 		 *
 		 * Deletes taskrequest properties and recipients from the task message.
 		 */
-		function reclaimownership()
-		{
+		public function reclaimownership() {
 			// Delete task request properties
-			mapi_deleteprops($this->message, array($this->props['taskglobalobjid'],
-													$this->props['tasklastuser'],
-													$this->props['tasklastdelegate']));
+			mapi_deleteprops($this->message, [$this->props['taskglobalobjid'],
+				$this->props['tasklastuser'],
+				$this->props['tasklastdelegate'], ]);
 
-			mapi_setprops($this->message, array($this->props['updatecount'] => 2,
-												$this->props['taskfcreator'] => true));
+			mapi_setprops($this->message, [$this->props['updatecount'] => 2,
+				$this->props['taskfcreator'] => true, ]);
 
 			// Delete recipients
 			$this->deleteAllRecipients($this->message);
 		}
 
-		/** Deletes all recipients from given message object
+		/** Deletes all recipients from given message object.
 		 *
-		 *@param $message MAPI message from which recipients are to be removed.
+		 *@param $message MAPI message from which recipients are to be removed
 		 */
-		function deleteAllRecipients($message)
-		{
+		public function deleteAllRecipients($message) {
 			$recipTable = mapi_message_getrecipienttable($message);
-			$recipRows = mapi_table_queryallrows($recipTable, array(PR_ROWID));
+			$recipRows = mapi_table_queryallrows($recipTable, [PR_ROWID]);
 
-			foreach($recipRows as $recipient)
-				mapi_message_modifyrecipients($message, MODRECIP_REMOVE, array($recipient));
+			foreach ($recipRows as $recipient) {
+				mapi_message_modifyrecipients($message, MODRECIP_REMOVE, [$recipient]);
+			}
 		}
 
-		function sendCompleteUpdate($prefix, $action, $prefixComplete)
-		{
-			$messageprops = mapi_getprops($this->message, array($this->props['taskstate']));
+		public function sendCompleteUpdate($prefix, $action, $prefixComplete) {
+			$messageprops = mapi_getprops($this->message, [$this->props['taskstate']]);
 
-			if(!isset($messageprops[$this->props['taskstate']]) || $messageprops[$this->props['taskstate']] != tdsOWN)
-				return false; // Can only decline assignee task
+			if (!isset($messageprops[$this->props['taskstate']]) || $messageprops[$this->props['taskstate']] != tdsOWN) {
+				return false;
+			} // Can only decline assignee task
 
-			mapi_setprops($this->message, array($this->props['complete'] => true,
-												$this->props['datecompleted'] => $action["dateCompleted"],
-												$this->props['status'] => 2,
-												$this->props['percent_complete'] => 1));
+			mapi_setprops($this->message, [$this->props['complete'] => true,
+				$this->props['datecompleted'] => $action["dateCompleted"],
+				$this->props['status'] => 2,
+				$this->props['percent_complete'] => 1, ]);
 
 			$this->doUpdate($prefix, $prefixComplete);
 		}
