@@ -29,9 +29,9 @@ To set up a development environment, please follow these steps:
    tools/php-cs-fixer/vendor/friendsofphp/php-cs-fixer/php-cs-fixer --config=.phpcs fix ./
    ```
 
-5. Validation of correct setup is possible by pointing a browser to https://<URL>/dav which should require to authenticate with valid credentials. The message "GET not supported" after successful authentication is correct, since EAS does not operate on HTTP GET.
+5. Validation of correct setup is possible by pointing a browser to https://<URL>/dav which should require to authenticate with valid credentials. After login sabre/dav page with a node list should appear.
 
-6. Validation of development environment is best when at least a mobile device account is successfully connected.
+6. Validation of development environment is best with a DAV-capable client, e.g. Thunderbird or Evolution.
 
 ## Issues and feature requests
 
