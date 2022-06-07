@@ -2,3 +2,4 @@ ignore/*
 vendor/*
 tools/*
 .php-cs-fixer.cache
+composer.phar
