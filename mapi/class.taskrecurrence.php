@@ -1,8 +1,8 @@
 <?php
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
- * SPDX-FileCopyrightText: Copyright 2005 - 2016 Zarafa and its licensors
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2005-2016 Zarafa Deutschland GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2022 grommunio GmbH
  */
 
 	class TaskRecurrence extends BaseRecurrence {
@@ -10,6 +10,8 @@
 		 * Timezone info which is always false for task.
 		 */
 		public $tz = false;
+
+		private $action;
 
 		public function __construct($store, $message) {
 			$this->store = $store;
@@ -54,8 +56,6 @@
 			$properties["commonassign"] = "PT_LONG:PSETID_Common:0x8518";
 			$properties["flagdueby"] = "PT_SYSTIME:PSETID_Common:0x8560";
 			$properties["side_effects"] = "PT_LONG:PSETID_Common:0x8510";
-			$properties["reminder"] = "PT_BOOLEAN:PSETID_Common:0x8503";
-			$properties["reminder_minutes"] = "PT_LONG:PSETID_Common:0x8501";
 
 			$this->proptags = getPropIdsFromStrings($store, $properties);
 
@@ -73,12 +73,12 @@
 			$this->recur = $recur;
 			$this->action = &$recur;
 
-			if (!isset($this->recur["changed_occurences"])) {
-				$this->recur["changed_occurences"] = [];
+			if (!isset($this->recur["changed_occurrences"])) {
+				$this->recur["changed_occurrences"] = [];
 			}
 
-			if (!isset($this->recur["deleted_occurences"])) {
-				$this->recur["deleted_occurences"] = [];
+			if (!isset($this->recur["deleted_occurrences"])) {
+				$this->recur["deleted_occurrences"] = [];
 			}
 
 			if (!isset($this->recur['startocc'])) {
@@ -300,7 +300,7 @@
 
 			if (!empty($msgbody) && strrpos($msgbody, $separator) === false) {
 				$msgbody = $separator . $msgbody;
-				$stream = mapi_openproperty($this->message, PR_BODY, IID_IStream, 0, MAPI_CREATE | MAPI_MODIFY);
+				$stream = mapi_openproperty($this->message, PR_BODY, IID_IStream, STGM_TRANSACTED, 0);
 				mapi_stream_setsize($stream, strlen($msgbody));
 				mapi_stream_write($stream, $msgbody);
 				mapi_stream_commit($stream);
@@ -321,20 +321,20 @@
 		 * @param mixed $now
 		 */
 		public function processOccurrenceItem(&$items, $start, $end, $now) {
-			if ($now <= $start) {
-				return;
-			}
-			$newItem = [];
-			$newItem[$this->proptags['startdate']] = $now;
+			if ($now > $start) {
+				$newItem = [];
+				$newItem[$this->proptags['startdate']] = $now;
 
-			// If startdate and enddate are set on task, then slide enddate according to duration
-			if (isset($this->messageprops[$this->proptags["startdate"]], $this->messageprops[$this->proptags["duedate"]])) {
-				$newItem[$this->proptags['duedate']] = $newItem[$this->proptags['startdate']] + ($this->messageprops[$this->proptags["duedate"]] - $this->messageprops[$this->proptags["startdate"]]);
+				// If startdate and enddate are set on task, then slide enddate according to duration
+				if (isset($this->messageprops[$this->proptags["startdate"]], $this->messageprops[$this->proptags["duedate"]])) {
+					$newItem[$this->proptags['duedate']] = $newItem[$this->proptags['startdate']] + ($this->messageprops[$this->proptags["duedate"]] - $this->messageprops[$this->proptags["startdate"]]);
+				}
+				else {
+					$newItem[$this->proptags['duedate']] = $newItem[$this->proptags['startdate']];
+				}
+
+				$items[] = $newItem;
 			}
-			else {
-				$newItem[$this->proptags['duedate']] = $newItem[$this->proptags['startdate']];
-			}
-			$items[] = $newItem;
 		}
 
 		/**

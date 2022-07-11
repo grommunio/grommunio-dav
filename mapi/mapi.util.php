@@ -1,22 +1,23 @@
 <?php
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
- * SPDX-FileCopyrightText: Copyright 2005 - 2016 Zarafa and its licensors
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2005-2016 Zarafa Deutschland GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2022 grommunio GmbH
  */
 
 /**
  * Function to make a MAPIGUID from a php string.
  * The C++ definition for the GUID is:
- *  struct GUID {
+ *  typedef struct _GUID
+ *  {
  *   unsigned long        Data1;
  *   unsigned short       Data2;
  *   unsigned short       Data3;
  *   unsigned char        Data4[8];
- *  };.
+ *  } GUID;.
  *
  * A GUID is normally represented in the following form:
- *     {00062008-0000-0000-C000-000000000046}
+ * 	{00062008-0000-0000-C000-000000000046}
  *
  * @param string GUID
  * @param mixed $guid
@@ -37,29 +38,27 @@ function get_mapi_error_name($errcode = null) {
 		$errcode = mapi_last_hresult();
 	}
 
-	if ($errcode === 0) {
-		return "NOERROR";
+	if ($errcode !== 0) {
+		// Retrieve constants categories, MAPI error names are defined
+		// in the 'user' category, since the grommunio code defines it in mapicode.php.
+		foreach (get_defined_constants(true)['user'] as $key => $value) {
+			/*
+			 * If PHP encounters a number beyond the bounds of the integer type,
+			 * it will be interpreted as a float instead, so when comparing these error codes
+			 * we have to manually typecast value to integer, so float will be converted in integer,
+			 * but still its out of bound for integer limit so it will be auto adjusted to minus value
+			 */
+			if ($errcode == (int) $value) {
+				// Check that we have an actual MAPI error or warning definition
+				$prefix = substr($key, 0, 7);
+				if ($prefix == "MAPI_E_" || $prefix == "MAPI_W_") {
+					return $key;
+				}
+			}
+		}
 	}
-
-	// get_defined_constants(true) is preferred, but crashes PHP
-	// https://bugs.php.net/bug.php?id=61156
-	$allConstants = get_defined_constants();
-
-	foreach ($allConstants as $key => $value) {
-		/*
-		 * If PHP encounters a number beyond the bounds of the integer type,
-		 * it will be interpreted as a float instead, so when comparing these error codes
-		 * we have to manually typecast value to integer, so float will be converted in integer,
-		 * but still its out of bound for integer limit so it will be auto adjusted to minus value
-		 */
-		if ($errcode != (int) $value) {
-			continue;
-		}
-		// Check that we have an actual MAPI error or warning definition
-		$prefix = substr($key, 0, 7);
-		if ($prefix == "MAPI_E_" || $prefix == "MAPI_W_") {
-			return $key;
-		}
+	else {
+		return "NOERROR";
 	}
 
 	// error code not found, return hex value (this is a fix for 64-bit systems, we can't use the dechex() function for this)
@@ -88,43 +87,44 @@ function getPropIdsFromStrings($store, $mapping) {
 	$guids = [];
 
 	foreach ($mapping as $name => $val) {
-		if (!is_string($val)) {
+		if (is_string($val)) {
+			$split = explode(":", $val);
+
+			if (count($split) != 3) { // invalid string, ignore
+				trigger_error(sprintf("Invalid property: %s \"%s\"", $name, $val), E_USER_NOTICE);
+
+				continue;
+			}
+
+			if (substr($split[2], 0, 2) == "0x") {
+				$id = hexdec(substr($split[2], 2));
+			}
+			else {
+				$id = $split[2];
+			}
+
+			// have we used this guid before?
+			if (!defined($split[1])) {
+				if (!array_key_exists($split[1], $guids)) {
+					$guids[$split[1]] = makeguid($split[1]);
+				}
+				$guid = $guids[$split[1]];
+			}
+			else {
+				$guid = constant($split[1]);
+			}
+
+			// temp store info about named prop, so we have to call mapi_getidsfromnames just one time
+			$ids["name"][$num] = $name;
+			$ids["id"][$num] = $id;
+			$ids["guid"][$num] = $guid;
+			$ids["type"][$num] = $split[0];
+			++$num;
+		}
+		else {
 			// not a named property
 			$props[$name] = $val;
-
-			continue;
 		}
-		$split = explode(":", $val);
-		if (count($split) != 3) { // invalid string, ignore
-			trigger_error(sprintf("Invalid property: %s \"%s\"", $name, $val), E_USER_NOTICE);
-
-			continue;
-		}
-
-		if (substr($split[2], 0, 2) == "0x") {
-			$id = hexdec(substr($split[2], 2));
-		}
-		else {
-			$id = $split[2];
-		}
-
-		// have we used this guid before?
-		if (!defined($split[1])) {
-			if (!array_key_exists($split[1], $guids)) {
-				$guids[$split[1]] = makeguid($split[1]);
-			}
-			$guid = $guids[$split[1]];
-		}
-		else {
-			$guid = constant($split[1]);
-		}
-
-		// temp store info about named prop, so we have to call mapi_getidsfromnames just one time
-		$ids["name"][$num] = $name;
-		$ids["id"][$num] = $id;
-		$ids["guid"][$num] = $guid;
-		$ids["type"][$num] = $split[0];
-		++$num;
 	}
 
 	if (empty($ids["id"])) {
@@ -205,7 +205,8 @@ function DTE_LOCAL($value) {
  */
 function getCalendarItems($store, $calendar, $viewstart, $viewend, $propsrequested) {
 	$result = [];
-	$properties = getPropIdsFromStrings($store, ["duedate" => "PT_SYSTIME:PSETID_Appointment:0x820e",
+	$properties = getPropIdsFromStrings($store, [
+		"duedate" => "PT_SYSTIME:PSETID_Appointment:0x820e",
 		"startdate" => "PT_SYSTIME:PSETID_Appointment:0x820d",
 		"enddate_recurring" => "PT_SYSTIME:PSETID_Appointment:0x8236",
 		"recurring" => "PT_BOOLEAN:PSETID_Appointment:0x8223",
@@ -221,18 +222,23 @@ function getCalendarItems($store, $calendar, $viewstart, $viewend, $propsrequest
 
 	$restriction =
 		// OR
-		[RES_OR,
+		[
+			RES_OR,
 			[
-				[RES_AND,    // Normal items: itemEnd must be after viewStart, itemStart must be before viewEnd
+				[RES_AND,	// Normal items: itemEnd must be after viewStart, itemStart must be before viewEnd
 					[
-						[RES_PROPERTY,
-							[RELOP => RELOP_GT,
+						[
+							RES_PROPERTY,
+							[
+								RELOP => RELOP_GT,
 								ULPROPTAG => $properties["duedate"],
 								VALUE => $viewstart,
 							],
 						],
-						[RES_PROPERTY,
-							[RELOP => RELOP_LT,
+						[
+							RES_PROPERTY,
+							[
+								RELOP => RELOP_LT,
 								ULPROPTAG => $properties["startdate"],
 								VALUE => $viewend,
 							],
@@ -240,19 +246,20 @@ function getCalendarItems($store, $calendar, $viewstart, $viewend, $propsrequest
 					],
 				],
 				// OR
-				[RES_PROPERTY,
-					[RELOP => RELOP_EQ,
+				[
+					RES_PROPERTY,
+					[
+						RELOP => RELOP_EQ,
 						ULPROPTAG => $properties["recurring"],
 						VALUE => true,
 					],
 				],
-			], // EXISTS OR
-		];        // global OR
+			],	// EXISTS OR
+		];		// global OR
 
 	// Get requested properties, plus whatever we need
 	$proplist = [PR_ENTRYID, $properties["recurring"], $properties["recurring_data"], $properties["timezone_data"]];
 	$proplist = array_merge($proplist, $propsrequested);
-	$propslist = array_unique($proplist);
 
 	$rows = mapi_table_queryallrows($table, $proplist, $restriction);
 
@@ -286,119 +293,58 @@ function getCalendarItems($store, $calendar, $viewstart, $viewend, $propsrequest
 	return $result;
 }
 
-/**
- * Get the main calendar.
- *
- * @param mixed $store
- */
-function getCalendar($store) {
-	$inbox = mapi_msgstore_getreceivefolder($store);
-	$inboxprops = mapi_getprops($inbox, [PR_IPM_APPOINTMENT_ENTRYID]);
-
-	if (!isset($inboxprops[PR_IPM_APPOINTMENT_ENTRYID])) {
-		return false;
-	}
-
-	return mapi_msgstore_openentry($store, $inboxprops[PR_IPM_APPOINTMENT_ENTRYID]);
-}
-
-/**
- * Get the default store for this session.
- *
- * @param mixed $session
- */
-function getDefaultStore($session) {
-	$msgstorestable = mapi_getmsgstorestable($session);
-
-	$msgstores = mapi_table_queryallrows($msgstorestable, [PR_DEFAULT_STORE, PR_ENTRYID]);
-
-	foreach ($msgstores as $row) {
-		if ($row[PR_DEFAULT_STORE]) {
-			$storeentryid = $row[PR_ENTRYID];
-
-			break;
-		}
-	}
-
-	if (!$storeentryid) {
-		echo "Can't find default store\n";
-
-		return false;
-	}
-
-	return mapi_openmsgstore($session, $storeentryid);
-}
-
-function forceUTF8($category) {
-	$old_locale = setlocale($category, "");
-	if (!isset($old_locale) || !$old_locale) {
-		echo "Unable to initialize locale\n";
-
-		exit(1);
-	}
-	$dot = strpos($old_locale, ".");
-	if ($dot) {
-		if (strrchr($old_locale, ".") == ".UTF-8" || strrchr($old_locale, ".") == ".utf8") {
-			return true;
-		}
-		$old_locale = substr($old_locale, 0, $dot);
-	}
-	$new_locale = $old_locale . ".UTF-8";
-	$old_locale = setlocale($category, $new_locale);
-	if (!$old_locale) {
-		$new_locale = "en_US.UTF-8";
-		$old_locale = setlocale($category, $new_locale);
-	}
-	if (!$old_locale) {
-		echo "Unable to set locale {$new_locale}\n";
-
-		exit(1);
-	}
-
-	return true;
-}
-
-if (!function_exists('mapi_zarafa_getuser_by_name')) {
 	/**
-	 * Retrieve the user information.
+	 * Compares two entryIds. It is possible to have two different entryIds that should match as they
+	 * represent the same object (in multiserver environments).
 	 *
-	 * @param MAPIResource $store
-	 * @param string       $username
+	 * @param {String} entryId1 EntryID
+	 * @param {String} entryId2 EntryID
+	 * @param mixed $entryId1
+	 * @param mixed $entryId2
 	 *
-	 * @returns array
+	 * @return {Boolean} Result of the comparison
 	 */
-	function mapi_zarafa_getuser_by_name($store, $username) {
-		$userInfo = get_user_info_by_name($username);
-
-		if (!is_array($userInfo)) {
+	function compareEntryIds($entryId1, $entryId2) {
+		if (!is_string($entryId1) || !is_string($entryId2)) {
 			return false;
 		}
 
-		return [
-			'userid' => $userInfo['uid'],
-			'username' => $username,
-			'fullname' => $userInfo['real_name'],
-			'emailaddress' => $username,
-			'admin' => 0,
-			'nonactive' => 0,
-		];
-	}
-}
+		if ($entryId1 === $entryId2) {
+			// if normal comparison succeeds then we can directly say that entryids are same
+			return true;
+		}
 
-function getGoidFromUid($uid) {
-	return hex2bin("040000008200E00074C5B7101A82E0080000000000000000000000000000000000000000" .
-				bin2hex(pack("V", 12 + strlen($uid)) . "vCal-Uid" . pack("V", 1) . $uid));
-}
-
-function getUidFromGoid($goid) {
-	// check if "vCal-Uid" is somewhere in outlookid case-insensitive
-	$uid = stristr($goid, "vCal-Uid");
-	if ($uid !== false) {
-		// get the length of the ical id - go back 4 position from where "vCal-Uid" was found
-		$begin = unpack("V", substr($goid, strlen($uid) * (-1) - 4, 4));
-		// remove "vCal-Uid" and packed "1" and use the ical id length
-		return substr($uid, 12, ($begin[1] - 12));
+		return false;
 	}
 
-	return null;
-}
+	/**
+	 * Creates a goid from an ical uuid.
+	 *
+	 * @param $uid
+	 *
+	 * @return string binary string representation of goid
+	 */
+	function getGoidFromUid($uid) {
+		return hex2bin("040000008200E00074C5B7101A82E0080000000000000000000000000000000000000000" .
+					bin2hex(pack("V", 12 + strlen($uid)) . "vCal-Uid" . pack("V", 1) . $uid));
+	}
+
+	/**
+	 * Creates an ical uuid from a goid.
+	 *
+	 * @param $goid
+	 *
+	 * @return string ical uuid
+	 */
+	function getUidFromGoid($goid) {
+		// check if "vCal-Uid" is somewhere in outlookid case-insensitive
+		$uid = stristr($goid, "vCal-Uid");
+		if ($uid !== false) {
+			// get the length of the ical id - go back 4 position from where "vCal-Uid" was found
+			$begin = unpack("V", substr($goid, strlen($uid) * (-1) - 4, 4));
+			// remove "vCal-Uid" and packed "1" and use the ical id length
+			return substr($uid, 12, ($begin[1] - 12));
+		}
+
+		return null;
+	}

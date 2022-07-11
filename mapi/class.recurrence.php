@@ -1,15 +1,12 @@
 <?php
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
- * SPDX-FileCopyrightText: Copyright 2005 - 2016 Zarafa and its licensors
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2005-2016 Zarafa Deutschland GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2022 grommunio GmbH
  */
 
 	/**
 	 * Recurrence.
-	 *
-	 * @author Steve Hardy <steve@zarafa.com>
-	 * @author Michel de Ron <michel@zarafa.com>
 	 */
 	class Recurrence extends BaseRecurrence {
 		/*
@@ -45,51 +42,59 @@
 		];
 
 		/**
-		 * @param resource $store   MAPI Message Store Object
-		 * @param resource $message the MAPI (appointment) message
+		 * Constructor.
+		 *
+		 * @param resource $store    MAPI Message Store Object
+		 * @param resource $message  the MAPI (appointment) message
+		 * @param array    $proptags an associative array of protags and their values
 		 */
-		public function __construct($store, $message) {
-			$properties = [];
-			$properties["entryid"] = PR_ENTRYID;
-			$properties["parent_entryid"] = PR_PARENT_ENTRYID;
-			$properties["message_class"] = PR_MESSAGE_CLASS;
-			$properties["icon_index"] = PR_ICON_INDEX;
-			$properties["subject"] = PR_SUBJECT;
-			$properties["display_to"] = PR_DISPLAY_TO;
-			$properties["importance"] = PR_IMPORTANCE;
-			$properties["sensitivity"] = PR_SENSITIVITY;
-			$properties["startdate"] = "PT_SYSTIME:PSETID_Appointment:0x820d";
-			$properties["duedate"] = "PT_SYSTIME:PSETID_Appointment:0x820e";
-			$properties["recurring"] = "PT_BOOLEAN:PSETID_Appointment:0x8223";
-			$properties["recurring_data"] = "PT_BINARY:PSETID_Appointment:0x8216";
-			$properties["busystatus"] = "PT_LONG:PSETID_Appointment:0x8205";
-			$properties["label"] = "PT_LONG:PSETID_Appointment:0x8214";
-			$properties["alldayevent"] = "PT_BOOLEAN:PSETID_Appointment:0x8215";
-			$properties["private"] = "PT_BOOLEAN:PSETID_Common:0x8506";
-			$properties["meeting"] = "PT_LONG:PSETID_Appointment:0x8217";
-			$properties["startdate_recurring"] = "PT_SYSTIME:PSETID_Appointment:0x8235";
-			$properties["enddate_recurring"] = "PT_SYSTIME:PSETID_Appointment:0x8236";
-			$properties["recurring_pattern"] = "PT_STRING8:PSETID_Appointment:0x8232";
-			$properties["location"] = "PT_STRING8:PSETID_Appointment:0x8208";
-			$properties["duration"] = "PT_LONG:PSETID_Appointment:0x8213";
-			$properties["responsestatus"] = "PT_LONG:PSETID_Appointment:0x8218";
-			$properties["reminder"] = "PT_BOOLEAN:PSETID_Common:0x8503";
-			$properties["reminder_minutes"] = "PT_LONG:PSETID_Common:0x8501";
-			$properties["recurrencetype"] = "PT_LONG:PSETID_Appointment:0x8231";
-			$properties["contacts"] = "PT_MV_STRING8:PSETID_Common:0x853a";
-			$properties["contacts_string"] = "PT_STRING8:PSETID_Common:0x8586";
-			$properties["categories"] = "PT_MV_STRING8:PS_PUBLIC_STRINGS:Keywords";
-			$properties["reminder_time"] = "PT_SYSTIME:PSETID_Common:0x8502";
-			$properties["commonstart"] = "PT_SYSTIME:PSETID_Common:0x8516";
-			$properties["commonend"] = "PT_SYSTIME:PSETID_Common:0x8517";
-			$properties["basedate"] = "PT_SYSTIME:PSETID_Appointment:0x8228";
-			$properties["timezone_data"] = "PT_BINARY:PSETID_Appointment:0x8233";
-			$properties["timezone"] = "PT_STRING8:PSETID_Appointment:0x8234";
-			$properties["flagdueby"] = "PT_SYSTIME:PSETID_Common:0x8560";
-			$properties["side_effects"] = "PT_LONG:PSETID_Common:0x8510";
-			$properties["hideattachments"] = "PT_BOOLEAN:PSETID_Common:0x8514";
+		public function __construct($store, $message, $proptags = []) {
+			if ($proptags) {
+				$this->proptags = $proptags;
+			}
+			else {
+				$properties = [];
+				$properties["entryid"] = PR_ENTRYID;
+				$properties["parent_entryid"] = PR_PARENT_ENTRYID;
+				$properties["message_class"] = PR_MESSAGE_CLASS;
+				$properties["icon_index"] = PR_ICON_INDEX;
+				$properties["subject"] = PR_SUBJECT;
+				$properties["display_to"] = PR_DISPLAY_TO;
+				$properties["importance"] = PR_IMPORTANCE;
+				$properties["sensitivity"] = PR_SENSITIVITY;
+				$properties["startdate"] = "PT_SYSTIME:PSETID_Appointment:0x820d";
+				$properties["duedate"] = "PT_SYSTIME:PSETID_Appointment:0x820e";
+				$properties["recurring"] = "PT_BOOLEAN:PSETID_Appointment:0x8223";
+				$properties["recurring_data"] = "PT_BINARY:PSETID_Appointment:0x8216";
+				$properties["busystatus"] = "PT_LONG:PSETID_Appointment:0x8205";
+				$properties["label"] = "PT_LONG:PSETID_Appointment:0x8214";
+				$properties["alldayevent"] = "PT_BOOLEAN:PSETID_Appointment:0x8215";
+				$properties["private"] = "PT_BOOLEAN:PSETID_Common:0x8506";
+				$properties["meeting"] = "PT_LONG:PSETID_Appointment:0x8217";
+				$properties["startdate_recurring"] = "PT_SYSTIME:PSETID_Appointment:0x8235";
+				$properties["enddate_recurring"] = "PT_SYSTIME:PSETID_Appointment:0x8236";
+				$properties["recurring_pattern"] = "PT_STRING8:PSETID_Appointment:0x8232";
+				$properties["location"] = "PT_STRING8:PSETID_Appointment:0x8208";
+				$properties["duration"] = "PT_LONG:PSETID_Appointment:0x8213";
+				$properties["responsestatus"] = "PT_LONG:PSETID_Appointment:0x8218";
+				$properties["reminder"] = "PT_BOOLEAN:PSETID_Common:0x8503";
+				$properties["reminder_minutes"] = "PT_LONG:PSETID_Common:0x8501";
+				$properties["recurrencetype"] = "PT_LONG:PSETID_Appointment:0x8231";
+				$properties["contacts"] = "PT_MV_STRING8:PSETID_Common:0x853a";
+				$properties["contacts_string"] = "PT_STRING8:PSETID_Common:0x8586";
+				$properties["categories"] = "PT_MV_STRING8:PS_PUBLIC_STRINGS:Keywords";
+				$properties["reminder_time"] = "PT_SYSTIME:PSETID_Common:0x8502";
+				$properties["commonstart"] = "PT_SYSTIME:PSETID_Common:0x8516";
+				$properties["commonend"] = "PT_SYSTIME:PSETID_Common:0x8517";
+				$properties["basedate"] = "PT_SYSTIME:PSETID_Appointment:0x8228";
+				$properties["timezone_data"] = "PT_BINARY:PSETID_Appointment:0x8233";
+				$properties["timezone"] = "PT_STRING8:PSETID_Appointment:0x8234";
+				$properties["flagdueby"] = "PT_SYSTIME:PSETID_Common:0x8560";
+				$properties["side_effects"] = "PT_LONG:PSETID_Common:0x8510";
+				$properties["hideattachments"] = "PT_BOOLEAN:PSETID_Common:0x8514";
 
-			$this->proptags = getPropIdsFromStrings($store, $properties);
+				$this->proptags = getPropIdsFromStrings($store, $properties);
+			}
 
 			parent::__construct($store, $message);
 		}
@@ -109,8 +114,8 @@
 
 			// Remove any pre-existing exception on this base date
 			if ($this->isException($baseday)) {
-				$this->deleteException($baseday);
-			} // note that deleting an exception is different from creating a deleted exception (deleting an occurrence).
+				$this->deleteException($baseday); // note that deleting an exception is different from creating a deleted exception (deleting an occurrence).
+			}
 
 			if (!$delete) {
 				if (isset($exception_props[$this->proptags["startdate"]]) && !$this->isValidExceptionDate($base_date, $this->fromGMT($this->tz, $exception_props[$this->proptags["startdate"]]))) {
@@ -134,6 +139,7 @@
 				if (!isset($exception_props[$this->proptags["startdate"]])) {
 					$props[$this->proptags["startdate"]] = $this->getOccurrenceStart($base_date);
 				}
+
 				if (!isset($exception_props[$this->proptags["duedate"]])) {
 					$props[$this->proptags["duedate"]] = $this->getOccurrenceEnd($base_date);
 				}
@@ -142,6 +148,7 @@
 				if (isset($props[$this->proptags["startdate"]])) {
 					$props[$this->proptags["commonstart"]] = $props[$this->proptags["startdate"]];
 				}
+
 				if (isset($props[$this->proptags["duedate"]])) {
 					$props[$this->proptags["commonend"]] = $props[$this->proptags["duedate"]];
 				}
@@ -158,21 +165,27 @@
 				if (array_key_exists($this->proptags["subject"], $exception_props)) {
 					$changed_item["subject"] = $exception_props[$this->proptags["subject"]];
 				}
+
 				if (array_key_exists($this->proptags["location"], $exception_props)) {
 					$changed_item["location"] = $exception_props[$this->proptags["location"]];
 				}
+
 				if (array_key_exists($this->proptags["label"], $exception_props)) {
 					$changed_item["label"] = $exception_props[$this->proptags["label"]];
 				}
+
 				if (array_key_exists($this->proptags["reminder"], $exception_props)) {
 					$changed_item["reminder_set"] = $exception_props[$this->proptags["reminder"]];
 				}
+
 				if (array_key_exists($this->proptags["reminder_minutes"], $exception_props)) {
 					$changed_item["remind_before"] = $exception_props[$this->proptags["reminder_minutes"]];
 				}
+
 				if (array_key_exists($this->proptags["alldayevent"], $exception_props)) {
 					$changed_item["alldayevent"] = $exception_props[$this->proptags["alldayevent"]];
 				}
+
 				if (array_key_exists($this->proptags["busystatus"], $exception_props)) {
 					$changed_item["busystatus"] = $exception_props[$this->proptags["busystatus"]];
 				}
@@ -209,7 +222,6 @@
 			}
 
 			$baseday = $this->dayStartOf($base_date);
-			$basetime = $baseday + $this->recur["startocc"] * 60;
 			$extomodify = false;
 
 			for ($i = 0, $len = count($this->recur["changed_occurrences"]); $i < $len; ++$i) {
@@ -229,27 +241,35 @@
 			if (array_key_exists($this->proptags["startdate"], $exception_props)) {
 				$extomodify["start"] = $this->fromGMT($this->tz, $exception_props[$this->proptags["startdate"]]);
 			}
+
 			if (array_key_exists($this->proptags["duedate"], $exception_props)) {
 				$extomodify["end"] = $this->fromGMT($this->tz, $exception_props[$this->proptags["duedate"]]);
 			}
+
 			if (array_key_exists($this->proptags["subject"], $exception_props)) {
 				$extomodify["subject"] = $exception_props[$this->proptags["subject"]];
 			}
+
 			if (array_key_exists($this->proptags["location"], $exception_props)) {
 				$extomodify["location"] = $exception_props[$this->proptags["location"]];
 			}
+
 			if (array_key_exists($this->proptags["label"], $exception_props)) {
 				$extomodify["label"] = $exception_props[$this->proptags["label"]];
 			}
+
 			if (array_key_exists($this->proptags["reminder"], $exception_props)) {
 				$extomodify["reminder_set"] = $exception_props[$this->proptags["reminder"]];
 			}
+
 			if (array_key_exists($this->proptags["reminder_minutes"], $exception_props)) {
 				$extomodify["remind_before"] = $exception_props[$this->proptags["reminder_minutes"]];
 			}
+
 			if (array_key_exists($this->proptags["alldayevent"], $exception_props)) {
 				$extomodify["alldayevent"] = $exception_props[$this->proptags["alldayevent"]];
 			}
+
 			if (array_key_exists($this->proptags["busystatus"], $exception_props)) {
 				$extomodify["busystatus"] = $exception_props[$this->proptags["busystatus"]];
 			}
@@ -260,6 +280,7 @@
 			if (isset($exception_props[$this->proptags["startdate"]])) {
 				$exception_props[$this->proptags["commonstart"]] = $exception_props[$this->proptags["startdate"]];
 			}
+
 			if (isset($exception_props[$this->proptags["duedate"]])) {
 				$exception_props[$this->proptags["commonend"]] = $exception_props[$this->proptags["duedate"]];
 			}
@@ -294,6 +315,7 @@
 				if (!empty($props)) {
 					mapi_setprops($attach, $props);
 				}
+
 				mapi_savechanges($attach);
 			}
 
@@ -351,8 +373,6 @@
 		 * @returns boolean if the reminder minutes value valid (FALSE if either of the rules above are FALSE)
 		 */
 		public function isValidReminderTime($basedate, $reminderminutes, $startdate) {
-			$isreminderrangeset = false;
-
 			// get all occurrence items before the seleceted items occurrence starttime
 			$occitems = $this->getItems($this->messageprops[$this->proptags["startdate"]], $this->toGMT($this->tz, $basedate));
 
@@ -425,15 +445,6 @@
 			return $this->toGMT($this->tz, $daystart + $this->recur["endocc"] * 60);
 		}
 
-		// Backwards compatible code
-		public function getOccurenceStart($basedate) {
-			return $this->getOccurrenceStart($basedate);
-		}
-
-		public function getOccurenceEnd($basedate) {
-			return $this->getOccurrenceEnd($basedate);
-		}
-
 		/**
 		 * This function returns the next remindertime starting from $timestamp
 		 * When no next reminder exists, false is returned.
@@ -449,7 +460,7 @@
 			 * Get next item from now until forever, but max 1 item with reminder set
 			 * Note 0x7ff00000 instead of 0x7fffffff because of possible overflow failures when converting to GMT....
 			 * Here for getting next 10 occurrences assuming that next here we will be able to find
-			 * nextreminder occurrence in 10 occureneces.
+			 * nextreminder occurrence in 10 occurrences.
 			 */
 			$items = $this->getItems($timestamp, 0x7FF00000, 10, true);
 
@@ -468,7 +479,6 @@
 				// If tempnextreminder is greater than timestamp then save it in nextreminder and break from the loop.
 				if ($tempnextreminder > $timestamp) {
 					$nextreminder = $tempnextreminder;
-
 					break;
 				}
 			}
@@ -523,38 +533,38 @@
 				// Daily
 				case 0x0A:
 					if ($everyn == 1) {
-						$type = dgettext("kopano", "workday");
+						$type = dgettext('zarafa', 'workday');
 						$occSingleDayRank = true;
 					}
 					elseif ($everyn == (24 * 60)) {
-						$type = dgettext("kopano", "day");
+						$type = dgettext('zarafa', 'day');
 						$occSingleDayRank = true;
 					}
 					else {
 						$everyn /= (24 * 60);
-						$type = dgettext("kopano", "days");
+						$type = dgettext('zarafa', 'days');
 						$occSingleDayRank = false;
 					}
 					break;
 				// Weekly
 				case 0x0B:
 					if ($everyn == 1) {
-						$type = dgettext("kopano", "week");
+						$type = dgettext('zarafa', 'week');
 						$occSingleDayRank = true;
 					}
 					else {
-						$type = dgettext("kopano", "weeks");
+						$type = dgettext('zarafa', 'weeks');
 						$occSingleDayRank = false;
 					}
 					break;
 				// Monthly
 				case 0x0C:
 					if ($everyn == 1) {
-						$type = dgettext("kopano", "month");
+						$type = dgettext('zarafa', 'month');
 						$occSingleDayRank = true;
 					}
 					else {
-						$type = dgettext("kopano", "months");
+						$type = dgettext('zarafa', 'months');
 						$occSingleDayRank = false;
 					}
 					break;
@@ -562,12 +572,12 @@
 				case 0x0D:
 					if ($everyn <= 12) {
 						$everyn = 1;
-						$type = dgettext("kopano", "year");
+						$type = dgettext('zarafa', 'year');
 						$occSingleDayRank = true;
 					}
 					else {
 						$everyn = $everyn / 12;
-						$type = dgettext("kopano", "years");
+						$type = dgettext('zarafa', 'years');
 						$occSingleDayRank = false;
 					}
 					break;
@@ -577,10 +587,10 @@
 			$firstoccstartdate = isset($startocc) ? $start + (((int) $startocc) * 60) : $start;
 			$firstoccenddate = isset($endocc) ? $end + (((int) $endocc) * 60) : $end;
 
-			$start = gmdate(dgettext("kopano", "d-m-Y"), $firstoccstartdate);
-			$end = gmdate(dgettext("kopano", "d-m-Y"), $firstoccenddate);
-			$startocc = gmdate(dgettext("kopano", "G:i"), $firstoccstartdate);
-			$endocc = gmdate(dgettext("kopano", "G:i"), $firstoccenddate);
+			$start = gmdate(dgettext('zarafa', 'd-m-Y'), $firstoccstartdate);
+			$end = gmdate(dgettext('zarafa', 'd-m-Y'), $firstoccenddate);
+			$startocc = gmdate(dgettext('zarafa', 'G:i'), $firstoccstartdate);
+			$endocc = gmdate(dgettext('zarafa', 'G:i'), $firstoccenddate);
 
 			// Based on the properties, we need to generate the recurrence pattern string.
 			// This is obviously very easy since we can simply concatenate a bunch of strings,
@@ -593,18 +603,18 @@
 				// Never ends
 				if ($occTimeRange) {
 					if ($occSingleDayRank) {
-						$pattern = sprintf(dgettext("kopano", "Occurs every %s effective %s from %s to %s."), $type, $start, $startocc, $endocc);
+						$pattern = sprintf(dgettext('zarafa', 'Occurs every %s effective %s from %s to %s.'), $type, $start, $startocc, $endocc);
 					}
 					else {
-						$pattern = sprintf(dgettext("kopano", "Occurs every %s %s effective %s from %s to %s."), $everyn, $type, $start, $startocc, $endocc);
+						$pattern = sprintf(dgettext('zarafa', 'Occurs every %s %s effective %s from %s to %s.'), $everyn, $type, $start, $startocc, $endocc);
 					}
 				}
 				else {
 					if ($occSingleDayRank) {
-						$pattern = sprintf(dgettext("kopano", "Occurs every %s effective %s."), $type, $start);
+						$pattern = sprintf(dgettext('zarafa', 'Occurs every %s effective %s.'), $type, $start);
 					}
 					else {
-						$pattern = sprintf(dgettext("kopano", "Occurs every %s %s effective %s."), $everyn, $type, $start);
+						$pattern = sprintf(dgettext('zarafa', 'Occurs every %s %s effective %s.'), $everyn, $type, $start);
 					}
 				}
 			}
@@ -613,17 +623,17 @@
 				if ($occTimeRange) {
 					if ($occSingleDayRank) {
 						$pattern = sprintf(dngettext(
-							"kopano",
-							"Occurs every %s effective %s for %s occurrence from %s to %s.",
-							"Occurs every %s effective %s for %s occurrences from %s to %s.",
+							'zarafa',
+							'Occurs every %s effective %s for %s occurrence from %s to %s.',
+							'Occurs every %s effective %s for %s occurrences from %s to %s.',
 							$numocc
 						), $type, $start, $numocc, $startocc, $endocc);
 					}
 					else {
 						$pattern = sprintf(dngettext(
-							"kopano",
-							"Occurs every %s %s effective %s for %s occurrence from %s to %s.",
-							"Occurs every %s %s effective %s for %s occurrences %s to %s.",
+							'zarafa',
+							'Occurs every %s %s effective %s for %s occurrence from %s to %s.',
+							'Occurs every %s %s effective %s for %s occurrences %s to %s.',
 							$numocc
 						), $everyn, $type, $start, $numocc, $startocc, $endocc);
 					}
@@ -631,17 +641,17 @@
 				else {
 					if ($occSingleDayRank) {
 						$pattern = sprintf(dngettext(
-							"kopano",
-							"Occurs every %s effective %s for %s occurrence.",
-							"Occurs every %s effective %s for %s occurrences.",
+							'zarafa',
+							'Occurs every %s effective %s for %s occurrence.',
+							'Occurs every %s effective %s for %s occurrences.',
 							$numocc
 						), $type, $start, $numocc);
 					}
 					else {
 						$pattern = sprintf(dngettext(
-							"kopano",
-							"Occurs every %s %s effective %s for %s occurrence.",
-							"Occurs every %s %s effective %s for %s occurrences.",
+							'zarafa',
+							'Occurs every %s %s effective %s for %s occurrence.',
+							'Occurs every %s %s effective %s for %s occurrences.',
 							$numocc
 						), $everyn, $type, $start, $numocc);
 					}
@@ -651,21 +661,22 @@
 				// After the given enddate
 				if ($occTimeRange) {
 					if ($occSingleDayRank) {
-						$pattern = sprintf(dgettext("kopano", "Occurs every %s effective %s until %s from %s to %s."), $type, $start, $end, $startocc, $endocc);
+						$pattern = sprintf(dgettext('zarafa', 'Occurs every %s effective %s until %s from %s to %s.'), $type, $start, $end, $startocc, $endocc);
 					}
 					else {
-						$pattern = sprintf(dgettext("kopano", "Occurs every %s %s effective %s until %s from %s to %s."), $everyn, $type, $start, $end, $startocc, $endocc);
+						$pattern = sprintf(dgettext('zarafa', 'Occurs every %s %s effective %s until %s from %s to %s.'), $everyn, $type, $start, $end, $startocc, $endocc);
 					}
 				}
 				else {
 					if ($occSingleDayRank) {
-						$pattern = sprintf(dgettext("kopano", "Occurs every %s effective %s until %s."), $type, $start, $end);
+						$pattern = sprintf(dgettext('zarafa', 'Occurs every %s effective %s until %s.'), $type, $start, $end);
 					}
 					else {
-						$pattern = sprintf(dgettext("kopano", "Occurs every %s %s effective %s until %s."), $everyn, $type, $start, $end);
+						$pattern = sprintf(dgettext('zarafa', 'Occurs every %s %s effective %s until %s.'), $everyn, $type, $start, $end);
 					}
 				}
 			}
+
 			if (!empty($pattern)) {
 				mapi_setprops($this->message, [$this->proptags["recurring_pattern"] => $pattern]);
 			}
@@ -685,7 +696,6 @@
 					$new[] = $entry;
 				}
 			}
-
 			$this->recur["deleted_occurrences"] = $new;
 
 			$new = [];
@@ -719,7 +729,7 @@
 			$props[PR_ATTACHMENT_HIDDEN] = true;
 			$props[PR_ATTACHMENT_LINKID] = 0;
 			$props[PR_ATTACH_FLAGS] = 0;
-			$props[PR_ATTACH_METHOD] = 5;
+			$props[PR_ATTACH_METHOD] = ATTACH_EMBEDDED_MSG;
 			$props[PR_DISPLAY_NAME] = "Exception";
 			$props[PR_EXCEPTION_STARTTIME] = $this->fromGMT($this->tz, $exception_props[$this->proptags["startdate"]]);
 			$props[PR_EXCEPTION_ENDTIME] = $this->fromGMT($this->tz, $exception_props[$this->proptags["duedate"]]);
@@ -748,7 +758,7 @@
 			// to change an existing exception.
 			// remove mv properties when needed
 			foreach ($props as $propTag => $propVal) {
-				if (mapi_prop_type($propTag) & MV_FLAG && is_null($propVal)) {
+				if ((mapi_prop_type($propTag) & MV_FLAG) == MV_FLAG && is_null($propVal)) {
 					unset($props[$propTag]);
 				}
 			}
@@ -770,13 +780,23 @@
 		 */
 		public function deleteExceptionAttachment($base_date) {
 			$attachments = mapi_message_getattachmenttable($this->message);
-			$attachTable = mapi_table_queryallrows($attachments, [PR_ATTACH_NUM]);
+			// Retrieve only exceptions which are stored as embedded messages
+			$attach_res = [
+				RES_PROPERTY,
+				[
+					RELOP => RELOP_EQ,
+					ULPROPTAG => PR_ATTACH_METHOD,
+					VALUE => [PR_ATTACH_METHOD => ATTACH_EMBEDDED_MSG],
+				],
+			];
+			$attachRows = mapi_table_queryallrows($attachments, [PR_ATTACH_NUM], $attach_res);
 
-			foreach ($attachTable as $attachRow) {
+			foreach ($attachRows as $attachRow) {
 				$tempattach = mapi_message_openattach($this->message, $attachRow[PR_ATTACH_NUM]);
 				$exception = mapi_attach_openobj($tempattach);
 
 				$data = mapi_message_getprops($exception, [$this->proptags["basedate"]]);
+
 				if ($this->dayStartOf($this->fromGMT($this->tz, $data[$this->proptags["basedate"]])) == $this->dayStartOf($base_date)) {
 					mapi_message_deleteattach($this->message, $attachRow[PR_ATTACH_NUM]);
 				}
@@ -803,15 +823,13 @@
 		 * @param mixed $base_date
 		 */
 		public function getExceptionAttachment($base_date) {
-			// Retrieve only embedded messages
-			$attach_res = [RES_AND,
+			// Retrieve only exceptions which are stored as embedded messages
+			$attach_res = [
+				RES_PROPERTY,
 				[
-					[RES_PROPERTY,
-						[RELOP => RELOP_EQ,
-							ULPROPTAG => PR_ATTACH_METHOD,
-							VALUE => [PR_ATTACH_METHOD => ATTACH_EMBEDDED_MSG],
-						],
-					],
+					RELOP => RELOP_EQ,
+					ULPROPTAG => PR_ATTACH_METHOD,
+					VALUE => [PR_ATTACH_METHOD => ATTACH_EMBEDDED_MSG],
 				],
 			];
 			$attachments = mapi_message_getattachmenttable($this->message);
@@ -824,7 +842,13 @@
 
 					$data = mapi_message_getprops($exception, [$this->proptags["basedate"]]);
 
-					if (isset($data[$this->proptags["basedate"]]) && $this->isSameDay($this->fromGMT($this->tz, $data[$this->proptags["basedate"]]), $base_date)) {
+					if (!isset($data[$this->proptags["basedate"]])) {
+						// if no basedate found then it could be embedded message so ignore it
+						// we need proper restriction to exclude embedded messages as well
+						continue;
+					}
+
+					if ($this->isSameDay($this->fromGMT($this->tz, $data[$this->proptags["basedate"]]), $base_date)) {
 						return $tempattach;
 					}
 				}
@@ -836,7 +860,7 @@
 		/**
 		 * processOccurrenceItem, adds an item to a list of occurrences, but only if the following criteria are met:
 		 * - The resulting occurrence (or exception) starts or ends in the interval <$start, $end>
-		 * - The ocurrence isn't specified as a deleted occurrence.
+		 * - The occurrence isn't specified as a deleted occurrence.
 		 *
 		 * @param array $items        reference to the array to be added to
 		 * @param date  $start        start of timeframe in GMT TIME
@@ -860,10 +884,10 @@
 			$occend = $this->toGMT($tz, $occend);
 
 			/**
-			 * FIRST PART : Check range criterium. Exact matches (eg when $occstart == $end), do NOT match since you cannot
+			 * FIRST PART: Check range criterium. Exact matches (eg when $occstart == $end), do NOT match since you cannot
 			 * see any part of the appointment. Partial overlaps DO match.
 			 *
-			 * SECOND PART : check if occurrence is not a zero duration occurrence which
+			 * SECOND PART: check if occurrence is not a zero duration occurrence which
 			 * starts at 00:00 and ends on 00:00. if it is so, then process
 			 * the occurrence and send it in response.
 			 */
@@ -909,7 +933,7 @@
 				}
 
 				array_push($items, $this->getExceptionProperties($exception));
-				if ($limit && (count($items) == $limit)) {
+				if (count($items) == $limit) {
 					break;
 				}
 			}
@@ -1009,21 +1033,27 @@
 			if (isset($exception["subject"])) {
 				$item[$this->proptags["subject"]] = $exception["subject"];
 			}
+
 			if (isset($exception["label"])) {
 				$item[$this->proptags["label"]] = $exception["label"];
 			}
+
 			if (isset($exception["alldayevent"])) {
 				$item[$this->proptags["alldayevent"]] = $exception["alldayevent"];
 			}
+
 			if (isset($exception["location"])) {
 				$item[$this->proptags["location"]] = $exception["location"];
 			}
+
 			if (isset($exception["remind_before"])) {
 				$item[$this->proptags["reminder_minutes"]] = $exception["remind_before"];
 			}
+
 			if (isset($exception["reminder_set"])) {
 				$item[$this->proptags["reminder"]] = $exception["reminder_set"];
 			}
+
 			if (isset($exception["busystatus"])) {
 				$item[$this->proptags["busystatus"]] = $exception["busystatus"];
 			}
@@ -1089,7 +1119,7 @@
 			// Remove all deleted recipients
 			if (isset($exception_recips['remove'])) {
 				foreach ($exception_recips['remove'] as &$recip) {
-					if (!isset($recipient[PR_RECIPIENT_FLAGS]) || $recip[PR_RECIPIENT_FLAGS] != (recipReserved | recipExceptionalDeleted | recipSendable)) {
+					if (!isset($recip[PR_RECIPIENT_FLAGS]) || $recip[PR_RECIPIENT_FLAGS] != (recipReserved | recipExceptionalDeleted | recipSendable)) {
 						$recip[PR_RECIPIENT_FLAGS] = recipSendable | recipExceptionalDeleted;
 					}
 					else {
@@ -1157,7 +1187,6 @@
 							foreach ($deletedRecipients as $recip) {
 								if ($recip[PR_SEARCH_KEY] == $recipient[PR_SEARCH_KEY]) {
 									$foundInDeletedRecipients = true;
-
 									break;
 								}
 							}
@@ -1191,9 +1220,10 @@
 			else {
 				$exception_recips = $recipientRows;
 			}
+
 			if (!empty($exception_recips)) {
 				// Set the new list of recipients on the exception message, this also removes the existing recipients
-				mapi_message_modifyrecipients($message, 0, $exception_recips);
+				mapi_message_modifyrecipients($message, MODRECIP_MODIFY, $exception_recips);
 			}
 		}
 
@@ -1201,8 +1231,8 @@
 		 * Function returns basedates of all changed occurrences.
 		 *
 		 *@return array array(
-		 * 0 => 123459321
-		 * )
+		 *					0 => 123459321
+		 *				)
 		 */
 		public function getAllExceptions() {
 			$result = false;
