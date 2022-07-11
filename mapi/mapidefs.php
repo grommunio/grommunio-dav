@@ -1,8 +1,8 @@
 <?php
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
- * SPDX-FileCopyrightText: Copyright 2005 - 2016 Zarafa and its licensors
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2005-2016 Zarafa Deutschland GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2022 grommunio GmbH
  */
 
 /* Resource types as defined in main.h of the mapi extension */
@@ -450,23 +450,22 @@ define('ULPROPTAG2', 8);        // RES_COMPAREPROPS 2nd property
 define('PROPS', 9);        // RES_COMMENT properties
 define('RESTRICTION', 10);        // RES_COMMENT and RES_SUBRESTRICTION restriction
 
-/* GUIDs for PR_MDB_PROVIDER */
-define("KOPANO_SERVICE_GUID", makeGuid("{3C253DCA-D227-443C-94FE-425FAB958C19}"));    // default store
-define("KOPANO_STORE_PUBLIC_GUID", makeGuid("{D47F4A09-D3BD-493C-B2FC-3C90BBCB48D4}"));    // public store
-define("KOPANO_STORE_DELEGATE_GUID", makeGuid("{7C7C1085-BC6D-4E53-9DAB-8A53F8DEF808}"));    // other store
-define("KOPANO_STORE_ARCHIVER_GUID", makeGuid("{BC8953AD-2E3F-4172-9404-896FF459870F}"));    // archive store
-/* webapp depends on these yet */
-define("ZARAFA_SERVICE_GUID", makeGuid("{3C253DCA-D227-443C-94FE-425FAB958C19}"));    // default store
-define("ZARAFA_STORE_PUBLIC_GUID", makeGuid("{D47F4A09-D3BD-493C-B2FC-3C90BBCB48D4}"));    // public store
-define("ZARAFA_STORE_DELEGATE_GUID", makeGuid("{7C7C1085-BC6D-4E53-9DAB-8A53F8DEF808}"));    // other store
+/* GUID's for PR_MDB_PROVIDER */
+define("ZARAFA_SERVICE_GUID", makeGuid("{C0A19454-7F29-1B10-A587-08002B2A2517}"));    // default store
+define("ZARAFA_STORE_PUBLIC_GUID", makeGuid("{70FAB278-F7AF-CD11-9BC8-00AA002FC45A}"));    // public store
+define("ZARAFA_STORE_DELEGATE_GUID", makeGuid("{0077B49E-E474-CE11-8C5E-00AA004254E2}"));    // other store
 define('ZARAFA_STORE_ARCHIVER_GUID', makeGuid("{BC8953AD-2E3F-4172-9404-896FF459870F}"));    // archive store
 
 /* global profile section guid */
 define('pbGlobalProfileSectionGuid', makeGuid("{C8B0DB13-05AA-1A10-9BB0-00AA002FC45A}"));
 
-/* Contacts provider GUID */
-define("KOPANO_CONTACTS_GUID", makeGuid("{30047F72-92E3-DA4F-B86A-E52A7FE46571}"));
+/* Zarafa Contacts provider GUID */
 define('ZARAFA_CONTACTS_GUID', makeGuid("{30047F72-92E3-DA4F-B86A-E52A7FE46571}"));
+
+/* GUIDs fpr store UID's Providers */
+define('MUID_STORE_WRAP_GUID', makeGuid("{10BBA138-E505-1A10-A1BB-08002B2A56C2}"));
+define('MUID_STORE_PRIVATE_GUID', makeGuid("{20FA551B-66AA-CD11-9BC8-00AA002FC45A}"));
+define('MUID_STORE_PUBLIC_GUID', makeGuid("{1002831C-66AA-CD11-9BC8-00AA002FC45A}"));
 
 /* Permissions */
 
@@ -484,11 +483,19 @@ define('ecRightsEditAny', 0x00000020);
 define('ecRightsDeleteAny', 0x00000040);
 define('ecRightsCreateSubfolder', 0x00000080);
 define('ecRightsFolderAccess', 0x00000100);
-// define('ecrightsContact'                       ,0x00000200);
+define('ecRightsContact', 0x00000200);
 define('ecRightsFolderVisible', 0x00000400);
 
 define('ecRightsAll', ecRightsReadAny | ecRightsCreate | ecRightsEditOwned | ecRightsDeleteOwned | ecRightsEditAny | ecRightsDeleteAny | ecRightsCreateSubfolder | ecRightsFolderAccess | ecRightsFolderVisible);
+define('ecRightsSecretary', ecRightsReadAny | ecRightsCreate | ecRightsEditOwned | ecRightsDeleteOwned | ecRightsEditAny | ecRightsDeleteAny | ecRightsFolderVisible);
 define('ecRightsFullControl', ecRightsReadAny | ecRightsCreate | ecRightsEditOwned | ecRightsDeleteOwned | ecRightsEditAny | ecRightsDeleteAny | ecRightsCreateSubfolder | ecRightsFolderVisible);
+define('ecRightsContributor', ecRightsFolderVisible | ecRightsCreate);
+define('ecRightsReviewer', ecRightsReadAny | ecRightsFolderVisible);
+define('ecRightsNonEditingAuthor', ecRightsReadAny | ecRightsFolderVisible | ecRightsCreate | ecRightsDeleteOwned);
+define('ecRightsAuthor', ecRightsReadAny | ecRightsFolderVisible | ecRightsCreate | ecRightsDeleteOwned | ecRightsEditOwned);
+define('ecRightsPublishingAuthor', ecRightsReadAny | ecRightsFolderVisible | ecRightsCreate | ecRightsDeleteOwned | ecRightsEditOwned | ecRightsCreateSubfolder);
+define('ecRightsEditor', ecRightsReadAny | ecRightsFolderVisible | ecRightsCreate | ecRightsDeleteOwned | ecRightsEditOwned | ecRightsEditAny | ecRightsDeleteAny);
+define('ecRightsPublishingEditor', ecRightsReadAny | ecRightsFolderVisible | ecRightsCreate | ecRightsDeleteOwned | ecRightsEditOwned | ecRightsEditAny | ecRightsDeleteAny | ecRightsCreateSubfolder);
 define('ecRightsDefault', ecRightsNone | ecRightsFolderVisible);
 define('ecRightsDefaultPublic', ecRightsReadAny | ecRightsFolderVisible);
 define('ecRightsAdmin', 0x00001000);
@@ -576,38 +583,38 @@ define('SYNC_ONLY_SPECIFIED_PROPS', 0x80);
 define('SYNC_NO_FOREIGN_KEYS', 0x100);
 define('SYNC_LIMITED_IMESSAGE', 0x200);
 define('SYNC_CATCHUP', 0x400);
-define('SYNC_NEW_MESSAGE', 0x800);   // only applicable to ImportMessageChange()
-define('SYNC_MSG_SELECTIVE', 0x1000);  // Used internally.      Will reject if used by clients.
+define('SYNC_NEW_MESSAGE', 0x800);         // only applicable to ImportMessageChange()
+define('SYNC_MSG_SELECTIVE', 0x1000);        // Used internally.      Will reject if used by clients.
 define('SYNC_BEST_BODY', 0x2000);
 define('SYNC_IGNORE_SPECIFIED_ON_ASSOCIATED', 0x4000);
-define('SYNC_PROGRESS_MODE', 0x8000);  // AirMapi progress mode
+define('SYNC_PROGRESS_MODE', 0x8000);        // AirMapi progress mode
 define('SYNC_FXRECOVERMODE', 0x10000);
 define('SYNC_DEFER_CONFIG', 0x20000);
-define('SYNC_FORCE_UNICODE', 0x40000); // Forces server to return Unicode properties
-define('SYNC_STATE_READONLY', 0x80000); // Server will not update the states in the DB, setting up exporter with this flag states are read only
+define('SYNC_FORCE_UNICODE', 0x40000);       // Forces server to return Unicode properties
+define('SYNC_STATE_READONLY', 0x80000);       // Server will not update the states in the DB, setting up exporter with this flag states are read only
 
-define('EMS_AB_ADDRESS_LOOKUP', 0x00000001); // Flag for resolvename to resolve only exact matches
+define('EMS_AB_ADDRESS_LOOKUP', 0x00000001);    // Flag for resolvename to resolve only exact matches
 
-define('TBL_BATCH', 0x00000002); // Batch multiple table commands
+define('TBL_BATCH', 0x00000002);    // Batch multiple table commands
 
 /* Flags for recipients in exceptions */
-define('recipSendable', 0x00000001);	// sendable attendee.
-define('recipOrganizer', 0x00000002);	// meeting organizer
-define('recipExceptionalResponse', 0x00000010);	// attendee gave a response for the exception
-define('recipExceptionalDeleted', 0x00000020);	// recipientRow exists, but it is treated as if the corresponding recipient is deleted from meeting
-define('recipOriginal', 0x00000100);	// recipient is an original Attendee
+define('recipSendable', 0x00000001);    // sendable attendee.
+define('recipOrganizer', 0x00000002);    // meeting organizer
+define('recipExceptionalResponse', 0x00000010);    // attendee gave a response for the exception
+define('recipExceptionalDeleted', 0x00000020);    // recipientRow exists, but it is treated as if the corresponding recipient is deleted from meeting
+define('recipOriginal', 0x00000100);    // recipient is an original Attendee
 define('recipReserved', 0x00000200);
 
 /* Flags which indicates type of Meeting Object */
-define('mtgEmpty', 0x00000000);	// Unspecified.
-define('mtgRequest', 0x00000001);	// Initial meeting request.
-define('mtgFull', 0x00010000);	// Full update.
-define('mtgInfo', 0x00020000);	// Informational update.
-define('mtgOutOfDate', 0x00080000);	// A newer Meeting Request object or Meeting Update object was received after this one.
-define('mtgDelegatorCopy', 0x00100000);	// This is set on the delegator's copy when a delegate will handle meeting-related objects.
+define('mtgEmpty', 0x00000000);    // Unspecified.
+define('mtgRequest', 0x00000001);    // Initial meeting request.
+define('mtgFull', 0x00010000);    // Full update.
+define('mtgInfo', 0x00020000);    // Informational update.
+define('mtgOutOfDate', 0x00080000);    // A newer Meeting Request object or Meeting Update object was received after this one.
+define('mtgDelegatorCopy', 0x00100000);    // This is set on the delegator's copy when a delegate will handle meeting-related objects.
 
-define('MAPI_ONE_OFF_UNICODE', 0x8000);		// the flag that defines whether the embedded strings are Unicode in one off entryids.
-define('MAPI_ONE_OFF_NO_RICH_INFO', 0x0001);		// the flag that specifies whether the recipient gets TNEF or not.
+define('MAPI_ONE_OFF_UNICODE', 0x8000);        // the flag that defines whether the embedded strings are Unicode in one off entryids.
+define('MAPI_ONE_OFF_NO_RICH_INFO', 0x0001);        // the flag that specifies whether the recipient gets TNEF or not.
 
 /* Mask flags for mapi_msgstore_advise */
 define('fnevCriticalError', 0x00000001);
@@ -622,6 +629,24 @@ define('fnevTableModified', 0x00000100);
 define('fnevStatusObjectModified', 0x00000200);
 define('fnevReservedForMapi', 0x40000000);
 define('fnevExtended', 0x80000000);
+
+/* PersistBlockType values PR_ADDITIONAL_REN_ENTRYIDS_EX / PR_ADDITIONAL_REN_ENTRYIDS_EX PersistIDs */
+define('PERSIST_SENTINEL', 0x0000); // Indicates that the PersistData structure is the last one contained in the PidTagAdditionalRenEntryIdsEx property
+define('RSF_PID_RSS_SUBSCRIPTION', 0x8001); // Indicates that the structure contains data for the RSS Feeds folder
+define('RSF_PID_SEND_AND_TRACK', 0x8002); // Indicates that the structure contains data for the Tracked Mail Processing folder
+define('RSF_PID_TODO_SEARCH', 0x8004); // Indicates that the structure contains data for the To-Do folder
+define('RSF_PID_CONV_ACTIONS', 0x8006); // Indicates that the structure contains data for the Conversation Action Settings folder
+define('RSF_PID_COMBINED_ACTIONS', 0x8007); // This value is reserved.
+define('RSF_PID_SUGGESTED_CONTACTS', 0x8008); // Indicates that the structure contains data for the Suggested Contacts folder.
+define('RSF_PID_CONTACT_SEARCH', 0x8009); // Indicates that the structure contains data for the Contacts Search folder.
+define('RSF_PID_BUDDYLIST_PDLS', 0x800A); // Indicates that the structure contains data for the IM Contacts List folder.
+define('RSF_PID_BUDDYLIST_CONTACTS', 0x800B); // Indicates that the structure contains data for the Quick Contacts folder.
+
+/* PersistElementType Values ElementIDs for persist data of PR_ADDITIONAL_REN_ENTRYIDS_EX / PR_ADDITIONAL_REN_ENTRYIDS_EX */
+define('ELEMENT_SENTINEL', 0x0000); // 0 bytes Indicates that the PersistElement structure is the last one contained in the DataElements field of the PersistData structure.
+define('RSF_ELID_ENTRYID', 0x0001); // variable Indicates that the ElementData field contains the entry ID of the special folder
+														   // that is of the type indicated by the value of the PersistID field of the PersistData structure.
+define('RSF_ELID_HEADER', 0x0002); // 4 bytes Indicates that the ElementData field contains a 4-byte header value equal to 0x00000000.
 
 define('STGM_DIRECT', 0x00000000);
 define('STGM_TRANSACTED', 0x00010000);
@@ -641,3 +666,9 @@ define('STGM_CONVERT', 0x00020000);
 define('STGM_FAILIFTHERE', 0x00000000);
 define('STGM_NOSNAPSHOT', 0x00200000);
 define('STGM_DIRECT_SWMR', 0x00400000);
+
+/* PidTagWlinkType / PR_WLINK_TYPE values */
+define('wblNormalFolder', 0x00000000);
+define('wblSearchFolder', 0x00000001);
+define('wblSharedFolder', 0x00000002);
+define('wblHeader', 0x00000004);

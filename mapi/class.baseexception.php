@@ -1,8 +1,8 @@
 <?php
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
- * SPDX-FileCopyrightText: Copyright 2005 - 2016 Zarafa and its licensors
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2005-2016 Zarafa Deutschland GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2022 grommunio GmbH
  */
 
 /**
@@ -34,6 +34,18 @@ class BaseException extends Exception {
 	public $displayMessage;
 
 	/**
+	 * Flag for allow to exception details message or not.
+	 */
+	public $allowToShowDetailsMessage = false;
+
+	/**
+	 * The exception title to show as a message box title at client side.
+	 */
+	public $title;
+
+	/**
+	 * Construct the exception.
+	 *
 	 * @param string    $errorMessage
 	 * @param int       $code
 	 * @param Exception $previous
@@ -71,7 +83,25 @@ class BaseException extends Exception {
 	 * @param string $message display message
 	 */
 	public function setDisplayMessage($message) {
-		$this->displayMessage = $message;
+		$this->displayMessage = $message . " (" . mapi_strerror($this->getCode()) . ")";
+	}
+
+	/**
+	 * Function sets title of an exception that will be sent to the client side
+	 * to show it to user.
+	 *
+	 * @param string $title title of an exception
+	 */
+	public function setTitle($title) {
+		$this->title = $title;
+	}
+
+	/**
+	 * @return string returns title that should be sent to client to display as a message box
+	 *                title
+	 */
+	public function getTitle() {
+		return $this->title;
 	}
 
 	/**
@@ -95,43 +125,21 @@ class BaseException extends Exception {
 	}
 
 	/**
-	 * Function will check for PHP version if it is greater than 5.3 then we can use its default implementation
-	 * otherwise we have to use our own implementation of chanining functionality.
-	 *
-	 * @return Exception returns previous exception
-	 */
-	public function _getPrevious() {
-		if (version_compare(PHP_VERSION, '5.3.0', '<')) {
-			return $this->_previous;
-		}
-
-		return parent::getPrevious();
-	}
-
-	/**
-	 * String representation of the exception, also handles previous exception.
-	 *
-	 * @return string
-	 */
-	public function __toString() {
-		if (version_compare(PHP_VERSION, '5.3.0', '<')) {
-			if (($e = $this->getPrevious()) !== null) {
-				return $e->__toString() .
-						"\n\nNext " .
-						parent::__toString();
-			}
-		}
-
-		return parent::__toString();
-	}
-
-	/**
 	 * Name of the class of exception.
 	 *
 	 * @return string
 	 */
 	public function getName() {
 		return get_class($this);
+	}
+
+	/**
+	 * It will return details error message if allowToShowDetailsMessage is set.
+	 *
+	 * @return string returns details error message
+	 */
+	public function getDetailsMessage() {
+		return $this->allowToShowDetailsMessage ? $this->__toString() : '';
 	}
 
 	// @TODO getTrace and getTraceAsString

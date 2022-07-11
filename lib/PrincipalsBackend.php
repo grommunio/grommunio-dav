@@ -72,14 +72,12 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 		else {
 			$username = str_replace('principals/', '', $path);
 		}
-		file_put_contents('/tmp/grommunio-dav.log', 'before mapi_zarafa_getuser_by_name', FILE_APPEND);
-		$userinfo = mapi_zarafa_getuser_by_name($this->gDavBackend->GetStore($username), $username);
-		file_put_contents('/tmp/grommunio-dav.log', 'AFTER mapi_zarafa_getuser_by_name', FILE_APPEND);
+		$userinfo = nsp_getuserinfo($username);
 		if (!$userinfo) {
 			return false;
 		}
-		$emailaddress = (isset($userinfo['emailaddress']) && $userinfo['emailaddress']) ? $userinfo['emailaddress'] : false;
-		$fullname = (isset($userinfo['fullname']) && $userinfo['fullname']) ? $userinfo['fullname'] : false;
+		$emailaddress = $userinfo['emailaddress'] ?? false;
+		$fullname = $userinfo['fullname'] ?? false;
 
 		return [
 			'id' => $username,
