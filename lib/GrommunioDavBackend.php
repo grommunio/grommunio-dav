@@ -296,7 +296,7 @@ class GrommunioDavBackend {
 			if (isset($row[PR_DEFAULT_STORE]) && $row[PR_DEFAULT_STORE]) {
 				$defaultstore = $row[PR_ENTRYID];
 			}
-			if (isset($row[PR_MDB_PROVIDER]) && $row[PR_MDB_PROVIDER] == KOPANO_STORE_PUBLIC_GUID) {
+			if (isset($row[PR_MDB_PROVIDER]) && $row[PR_MDB_PROVIDER] == ZARAFA_STORE_PUBLIC_GUID) {
 				$publicstore = $row[PR_ENTRYID];
 			}
 		}
