@@ -1,6 +1,9 @@
 <?php
-
-mapi_load_mapidefs();
+/*
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * SPDX-FileCopyrightText: Copyright 2005-2016 Zarafa Deutschland GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2022 grommunio GmbH
+ */
 
 /* Search folder properties */
 define('PR_EC_SUGGESTION', mapi_prop_tag(PT_TSTRING, 0x6707));
@@ -11,12 +14,6 @@ define('PR_RULE_ATMOST_MESSAGE_SIZEUNIT', mapi_prop_tag(PT_STRING8, 0x6717));
 // custom properties which holds size units for exceptions
 define('PR_RULE_EXCEPTION_ATLEAST_MESSAGE_SIZEUNIT', mapi_prop_tag(PT_STRING8, 0x6718));
 define('PR_RULE_EXCEPTION_ATMOST_MESSAGE_SIZEUNIT', mapi_prop_tag(PT_STRING8, 0x6719));
-
-/* Server version */
-define('PR_EC_SERVER_VERSION', mapi_prop_tag(PT_STRING8, 0x6716));
-
-/* storage for the user language and timezone */
-define('PR_EC_USER_LANGUAGE', mapi_prop_tag(PT_STRING8, 0x6770));
 
 /* storage for the settings for the webaccess 7.xx */
 define('PR_EC_RECIPIENT_HISTORY_JSON', mapi_prop_tag(PT_STRING8, 0x6773));

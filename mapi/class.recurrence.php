@@ -49,7 +49,7 @@
 		 * @param array    $proptags an associative array of protags and their values
 		 */
 		public function __construct($store, $message, $proptags = []) {
-			if ($proptags) {
+			if (!empty($proptags)) {
 				$this->proptags = $proptags;
 			}
 			else {
@@ -62,36 +62,36 @@
 				$properties["display_to"] = PR_DISPLAY_TO;
 				$properties["importance"] = PR_IMPORTANCE;
 				$properties["sensitivity"] = PR_SENSITIVITY;
-				$properties["startdate"] = "PT_SYSTIME:PSETID_Appointment:0x820d";
-				$properties["duedate"] = "PT_SYSTIME:PSETID_Appointment:0x820e";
-				$properties["recurring"] = "PT_BOOLEAN:PSETID_Appointment:0x8223";
-				$properties["recurring_data"] = "PT_BINARY:PSETID_Appointment:0x8216";
-				$properties["busystatus"] = "PT_LONG:PSETID_Appointment:0x8205";
+				$properties["startdate"] = "PT_SYSTIME:PSETID_Appointment:" . PidLidAppointmentStartWhole;
+				$properties["duedate"] = "PT_SYSTIME:PSETID_Appointment:" . PidLidAppointmentEndWhole;
+				$properties["recurring"] = "PT_BOOLEAN:PSETID_Appointment:" . PidLidRecurring;
+				$properties["recurring_data"] = "PT_BINARY:PSETID_Appointment:" . PidLidAppointmentRecur;
+				$properties["busystatus"] = "PT_LONG:PSETID_Appointment:" . PidLidBusyStatus;
 				$properties["label"] = "PT_LONG:PSETID_Appointment:0x8214";
-				$properties["alldayevent"] = "PT_BOOLEAN:PSETID_Appointment:0x8215";
-				$properties["private"] = "PT_BOOLEAN:PSETID_Common:0x8506";
-				$properties["meeting"] = "PT_LONG:PSETID_Appointment:0x8217";
-				$properties["startdate_recurring"] = "PT_SYSTIME:PSETID_Appointment:0x8235";
-				$properties["enddate_recurring"] = "PT_SYSTIME:PSETID_Appointment:0x8236";
+				$properties["alldayevent"] = "PT_BOOLEAN:PSETID_Appointment:" . PidLidAppointmentSubType;
+				$properties["private"] = "PT_BOOLEAN:PSETID_Common:" . PidLidPrivate;
+				$properties["meeting"] = "PT_LONG:PSETID_Appointment:" . PidLidAppointmentStateFlags;
+				$properties["startdate_recurring"] = "PT_SYSTIME:PSETID_Appointment:" . PidLidClipStart;
+				$properties["enddate_recurring"] = "PT_SYSTIME:PSETID_Appointment:" . PidLidClipEnd;
 				$properties["recurring_pattern"] = "PT_STRING8:PSETID_Appointment:0x8232";
-				$properties["location"] = "PT_STRING8:PSETID_Appointment:0x8208";
-				$properties["duration"] = "PT_LONG:PSETID_Appointment:0x8213";
+				$properties["location"] = "PT_STRING8:PSETID_Appointment:" . PidLidLocation;
+				$properties["duration"] = "PT_LONG:PSETID_Appointment:" . PidLidAppointmentDuration;
 				$properties["responsestatus"] = "PT_LONG:PSETID_Appointment:0x8218";
-				$properties["reminder"] = "PT_BOOLEAN:PSETID_Common:0x8503";
-				$properties["reminder_minutes"] = "PT_LONG:PSETID_Common:0x8501";
+				$properties["reminder"] = "PT_BOOLEAN:PSETID_Common:" . PidLidReminderSet;
+				$properties["reminder_minutes"] = "PT_LONG:PSETID_Common:" . PidLidReminderDelta;
 				$properties["recurrencetype"] = "PT_LONG:PSETID_Appointment:0x8231";
 				$properties["contacts"] = "PT_MV_STRING8:PSETID_Common:0x853a";
 				$properties["contacts_string"] = "PT_STRING8:PSETID_Common:0x8586";
 				$properties["categories"] = "PT_MV_STRING8:PS_PUBLIC_STRINGS:Keywords";
-				$properties["reminder_time"] = "PT_SYSTIME:PSETID_Common:0x8502";
+				$properties["reminder_time"] = "PT_SYSTIME:PSETID_Common:" . PidLidReminderTime;
 				$properties["commonstart"] = "PT_SYSTIME:PSETID_Common:0x8516";
 				$properties["commonend"] = "PT_SYSTIME:PSETID_Common:0x8517";
-				$properties["basedate"] = "PT_SYSTIME:PSETID_Appointment:0x8228";
-				$properties["timezone_data"] = "PT_BINARY:PSETID_Appointment:0x8233";
-				$properties["timezone"] = "PT_STRING8:PSETID_Appointment:0x8234";
-				$properties["flagdueby"] = "PT_SYSTIME:PSETID_Common:0x8560";
+				$properties["basedate"] = "PT_SYSTIME:PSETID_Appointment:" . PidLidExceptionReplaceTime;
+				$properties["timezone_data"] = "PT_BINARY:PSETID_Appointment:" . PidLidTimeZoneStruct;
+				$properties["timezone"] = "PT_STRING8:PSETID_Appointment:" . PidLidTimeZoneDescription;
+				$properties["flagdueby"] = "PT_SYSTIME:PSETID_Common:" . PidLidReminderSignalTime;
 				$properties["side_effects"] = "PT_LONG:PSETID_Common:0x8510";
-				$properties["hideattachments"] = "PT_BOOLEAN:PSETID_Common:0x8514";
+				$properties["hideattachments"] = "PT_BOOLEAN:PSETID_Common:" . PidLidSmartNoAttach;
 
 				$this->proptags = getPropIdsFromStrings($store, $properties);
 			}
@@ -102,11 +102,11 @@
 		/**
 		 * Create an exception.
 		 *
-		 * @param array        $exception_props  the exception properties (same properties as normal recurring items)
-		 * @param date         $base_date        the base date of the exception (LOCAL time of non-exception occurrence)
-		 * @param bool         $delete           true - delete occurrence, false - create new exception or modify existing
-		 * @param array        $exception_recips true - delete occurrence, false - create new exception or modify existing
-		 * @param mapi_message $copy_attach_from mapi message from which attachments should be copied
+		 * @param array $exception_props  the exception properties (same properties as normal recurring items)
+		 * @param mixed $base_date        the base date of the exception (LOCAL time of non-exception occurrence)
+		 * @param bool  $delete           true - delete occurrence, false - create new exception or modify existing
+		 * @param array $exception_recips list of recipients
+		 * @param mixed $copy_attach_from mapi message from which attachments should be copied
 		 */
 		public function createException($exception_props, $base_date, $delete = false, $exception_recips = [], $copy_attach_from = false) {
 			$baseday = $this->dayStartOf($base_date);
@@ -522,7 +522,7 @@
 			$start = $this->recur['start'];
 			$end = $this->recur['end'];
 			$term = $this->recur['term'];
-			$numocc = isset($this->recur['numoccur']) ? $this->recur['numoccur'] : false;
+			$numocc = isset($this->recur['numoccur']) ? $this->recur['numoccur'] : 0;
 			$startocc = $this->recur['startocc'];
 			$endocc = $this->recur['endocc'];
 			$pattern = '';
@@ -774,9 +774,9 @@
 		/**
 		 * Function which deletes the attachment of an exception.
 		 *
-		 * @param date $base_date base date of the attachment. Should be in GMT. The attachment
-		 *                        actually saves the real time of the original date, so we have
-		 *                        to check whether it's on the same day.
+		 * @param mixed $base_date base date of the attachment. Should be in GMT. The attachment
+		 *                         actually saves the real time of the original date, so we have
+		 *                         to check whether it's on the same day.
 		 */
 		public function deleteExceptionAttachment($base_date) {
 			$attachments = mapi_message_getattachmenttable($this->message);
@@ -863,12 +863,12 @@
 		 * - The occurrence isn't specified as a deleted occurrence.
 		 *
 		 * @param array $items        reference to the array to be added to
-		 * @param date  $start        start of timeframe in GMT TIME
-		 * @param date  $end          end of timeframe in GMT TIME
-		 * @param date  $basedate     (hour/sec/min assumed to be 00:00:00) in LOCAL TIME OF THE OCCURRENCE
+		 * @param int   $start        start of timeframe in GMT TIME
+		 * @param int   $end          end of timeframe in GMT TIME
+		 * @param int   $basedate     (hour/sec/min assumed to be 00:00:00) in LOCAL TIME OF THE OCCURRENCE
 		 * @param int   $startocc     start of occurrence since beginning of day in minutes
 		 * @param int   $endocc       end of occurrence since beginning of day in minutes
-		 * @param int   $tz           the timezone info for this occurrence ( applied to $basedate / $startocc / $endocc )
+		 * @param mixed $tz           the timezone info for this occurrence ( applied to $basedate / $startocc / $endocc )
 		 * @param bool  $reminderonly If TRUE, only add the item if the reminder is set
 		 */
 		public function processOccurrenceItem(&$items, $start, $end, $basedate, $startocc, $endocc, $tz, $reminderonly) {
@@ -942,10 +942,9 @@
 		/**
 		 * Function which verifies if on the given date an exception, delete or change, occurs.
 		 *
-		 * @param date  $date     the date
 		 * @param mixed $basedate
 		 *
-		 * @return array the exception, true - if an occurrence is deleted on the given date, false - no exception occurs on the given date
+		 * @return bool true - if an exception occurs on the given date, false - no exception occurs on the given date
 		 */
 		public function isException($basedate) {
 			if ($this->isDeleteException($basedate)) {
@@ -1006,59 +1005,6 @@
 			$time2 = $this->gmtime($date2);
 
 			return $time1["tm_mon"] == $time2["tm_mon"] && $time1["tm_year"] == $time2["tm_year"] && $time1["tm_mday"] == $time2["tm_mday"];
-		}
-
-		/**
-		 * Function to get all properties of a single changed exception.
-		 *
-		 * @param date  $date      base date of exception
-		 * @param mixed $exception
-		 *
-		 * @return array associative array of properties for the exception, compatible with
-		 */
-		public function getExceptionProperties($exception) {
-			// Exception has same properties as main object, with some properties overridden:
-			$item = $this->messageprops;
-
-			// Special properties
-			$item["exception"] = true;
-			$item["basedate"] = $exception["basedate"]; // note that the basedate is always in local time !
-
-			// MAPI-compatible properties (you can handle an exception as a normal calendar item like this)
-			$item[$this->proptags["startdate"]] = $this->toGMT($this->tz, $exception["start"]);
-			$item[$this->proptags["duedate"]] = $this->toGMT($this->tz, $exception["end"]);
-			$item[$this->proptags["commonstart"]] = $item[$this->proptags["startdate"]];
-			$item[$this->proptags["commonend"]] = $item[$this->proptags["duedate"]];
-
-			if (isset($exception["subject"])) {
-				$item[$this->proptags["subject"]] = $exception["subject"];
-			}
-
-			if (isset($exception["label"])) {
-				$item[$this->proptags["label"]] = $exception["label"];
-			}
-
-			if (isset($exception["alldayevent"])) {
-				$item[$this->proptags["alldayevent"]] = $exception["alldayevent"];
-			}
-
-			if (isset($exception["location"])) {
-				$item[$this->proptags["location"]] = $exception["location"];
-			}
-
-			if (isset($exception["remind_before"])) {
-				$item[$this->proptags["reminder_minutes"]] = $exception["remind_before"];
-			}
-
-			if (isset($exception["reminder_set"])) {
-				$item[$this->proptags["reminder"]] = $exception["reminder_set"];
-			}
-
-			if (isset($exception["busystatus"])) {
-				$item[$this->proptags["busystatus"]] = $exception["busystatus"];
-			}
-
-			return $item;
 		}
 
 		/**
@@ -1230,12 +1176,11 @@
 		/**
 		 * Function returns basedates of all changed occurrences.
 		 *
-		 *@return array array(
-		 *					0 => 123459321
-		 *				)
+		 * @return array|bool array(
+		 *                        0 => 123459321
+		 *                    )
 		 */
 		public function getAllExceptions() {
-			$result = false;
 			if (!empty($this->recur["changed_occurrences"])) {
 				$result = [];
 				foreach ($this->recur["changed_occurrences"] as $exception) {
@@ -1245,7 +1190,7 @@
 				return $result;
 			}
 
-			return $result;
+			return false;
 		}
 
 		/**
