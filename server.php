@@ -30,7 +30,7 @@ $logger->debug('%s %s', $_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);
 $logger->debug('grommunio-dav version %s', GDAV_VERSION);
 $logger->debug('SabreDAV version %s', \Sabre\DAV\Version::VERSION);
 
-$gdavBackend = new GrommunioDavBackend(new GLogger(('dav')));
+$gdavBackend = new GrommunioDavBackend(new GLogger('dav'));
 $authBackend = new AuthBasicBackend($gdavBackend);
 $authBackend->setRealm(SABRE_AUTH_REALM);
 $principalBackend = new PrincipalsBackend($gdavBackend);
@@ -62,8 +62,8 @@ $aclPlugin = new DAVACL();
 $aclPlugin->allowUnauthenticatedAccess = false;
 $server->addPlugin($aclPlugin);
 
-$schedulePlugin = new GrommunioSchedulePlugin($gdavBackend, new GLogger('schedule'));
-$server->addPlugin($schedulePlugin);
+// $schedulePlugin = new GrommunioSchedulePlugin($gdavBackend, new GLogger('schedule'));
+// $server->addPlugin($schedulePlugin);
 
 $imipPlugin = new GrommunioIMipPlugin($gdavBackend, new GLogger('imip'));
 $server->addPlugin($imipPlugin);
