@@ -462,7 +462,11 @@ class GrommunioDavBackend {
 					$this->logger->trace("Try goid %s", $id);
 					$goid = getGoidFromUid($id);
 					$this->logger->trace("Try goid 0x%08X => %s", $properties["goid"], bin2hex($goid));
-					$restriction[] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid]];
+					$goid0 = getGoidFromUidZero($id);
+					$restriction[] = [RES_OR,
+						[RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid]],
+						[RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid0]]
+					];
 				}
 				elseif ($extension == GrommunioCardDavBackend::FILE_EXTENSION) {
 					$this->logger->trace("Try vcarduid %s", $id);
