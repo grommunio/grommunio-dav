@@ -12,9 +12,6 @@ namespace grommunio\DAV;
 // require composer auto-loader
 require __DIR__ . '/vendor/autoload.php';
 
-// FIXME:  solve the including of shared files properly
-require_once GROMOX_PHP_PATH . 'lib/db.php';
-
 // Configure & create main logger
 GLogger::configure(__DIR__ . '/log4php.xml');
 $logger = new GLogger('main');

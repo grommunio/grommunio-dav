@@ -23,7 +23,3 @@ define('MAX_SYNC_ITEMS', 1000);
 
 // Developer mode: verifies log messages
 define('DEVELOPER_MODE', true);
-
-// FIXME: solve the including of shared files properly
-// Defines the path to shared gromox files
-define('GROMOX_PHP_PATH', '/usr/share/gromox/http/php/');
