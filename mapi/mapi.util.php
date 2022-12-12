@@ -318,7 +318,7 @@ function getGoidFromUid($uid) {
 
 /**
  * Returns zero terminated goid. It is required for backwards compatibility.
- *
+ * 
  *
  * @param string $icalUid an appointment uid as HEX
  *
