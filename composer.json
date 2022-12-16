@@ -20,7 +20,7 @@
         "psr-4" : {
             "grommunio\\DAV\\" : "lib/"
         },
-        "files" : ["config.php", "version.php", "umapi/mapi.util.php", "umapi/mapidefs.php", "umapi/mapiguid.php", "umapi/mapitags.php", "umapi/class.baserecurrence.php", "umapi/class.recurrence.php", "umapi/class.freebusy.php"]
+        "files" : ["config.php", "version.php", "/usr/share/php-mapi/mapi.util.php", "/usr/share/php-mapi/mapidefs.php", "/usr/share/php-mapi/mapiguid.php", "/usr/share/php-mapi/mapitags.php", "/usr/share/php-mapi/class.baserecurrence.php", "/usr/share/php-mapi/class.recurrence.php", "/usr/share/php-mapi/class.freebusy.php"]
     },
     "minimum-stability"     : "stable"
 }
