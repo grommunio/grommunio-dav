@@ -9,7 +9,7 @@ build:
     analysis:
       dependencies:
         before:
-          - 'git clone https://github.com/grommunio/mapi-header-php.git /usr/share/php-mapi'
+          - 'sudo git clone https://github.com/grommunio/mapi-header-php.git /usr/share/php-mapi'
       project_setup:
         override:
           - true
