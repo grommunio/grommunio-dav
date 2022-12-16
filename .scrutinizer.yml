@@ -18,6 +18,10 @@ build:
           - php-scrutinizer-run
           - command: phpcs-run
             use_website_config: true
+    tests:
+      dependencies:
+        before:
+          - 'sudo git clone https://github.com/grommunio/mapi-header-php.git /usr/share/php-mapi'
 filter:
   excluded_paths:
     - vendor
