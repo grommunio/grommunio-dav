@@ -7,9 +7,12 @@ build:
         xdebug.mode: coverage
   nodes:
     analysis:
+      dependencies:
+        before:
+          - 'git clone https://github.com/grommunio/mapi-header-php.git /usr/share/php-mapi'
       project_setup:
         override:
-          - "true"
+          - true
       tests:
         override:
           - php-scrutinizer-run
