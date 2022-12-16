@@ -1,6 +1,6 @@
 {
     "name"                  : "grommunio/dav",
-    "description"           : "This is grommunio DAV implementation",
+    "description"           : "This is grommunio's DAV implementation",
     "require": {
         "sabre/dav"         : "~4.3.1",
         "apache/log4php"    : "~2.3.0"
@@ -11,23 +11,8 @@
     "license"               : "AGPL v3",
     "authors": [
         {
-            "name"          : "Manfred Kutas",
-            "email"         : "manfred@z-push.org",
-            "role"          : "Developer"
-        },
-        {
-            "name"          : "Sebastian Kummer",
-            "email"         : "sebastian@z-push.org",
-            "role"          : "Developer"
-        },
-        {
-            "name"          : "Michael Becker",
-            "email"         : "michael.becker@grommunio.com",
-            "role"          : "Developer"
-        },
-        {
-            "name"          : "Andreas Lang",
-            "email"         : "andreas.lang@grommunio.com",
+            "name"          : "Grommunio developers",
+            "email"         : "dev@grommunio.com",
             "role"          : "Developer"
         }
     ],
