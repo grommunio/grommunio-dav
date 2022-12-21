@@ -73,6 +73,10 @@ _caldavs._tcp TXT path=/dav
 _carddavs._tcp TXT path=/dav
 ```
 
+### Logging
+
+grommunio Dav uses [log4php](http://logging.apache.org/log4php/) for logging. Adjust [/log4php.xml](/log4php.xml) to match your needs.
+
 ## Usage
 
 - You can use your webbrowser to point to ```https://my.example.com/dav/``` or alternatively directly to your calendar URL ```https://my.example.com/dav/calendars/<user>/Calendar/```
