@@ -483,7 +483,7 @@ class GrommunioDavBackend {
 			$proplist = [PR_ENTRYID];
 			$rows = mapi_table_queryallrows($table, $proplist);
 			if (count($rows) > 1) {
-				$this->logger->warn("Found %d entries for id '%s' searching for message", count($rows), $id);
+				$this->logger->warn("Found %d entries for id '%s' searching for message, returnin first in the list", count($rows), $id);
 			}
 			if (isset($rows[0], $rows[0][PR_ENTRYID])) {
 				$entryid = $rows[0][PR_ENTRYID];

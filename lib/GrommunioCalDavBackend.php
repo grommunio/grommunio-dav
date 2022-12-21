@@ -267,7 +267,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($calendarId, $objectUri, $mapifolder, static::FILE_EXTENSION);
 		if (!$mapimessage) {
-			$this->logger->error("Object NOT FOUND");
+			$this->logger->info("Object NOT FOUND");
 
 			return null;
 		}
