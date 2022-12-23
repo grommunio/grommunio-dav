@@ -2,7 +2,7 @@
     "name"                  : "grommunio/dav",
     "description"           : "This is grommunio's DAV implementation",
     "require": {
-        "sabre/dav"         : "~4.3.1",
+        "sabre/dav"         : "~4.4.0",
         "apache/log4php"    : "~2.3.0",
         "psr/log"           : "^1.1.4"
     },
