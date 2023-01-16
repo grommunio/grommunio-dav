@@ -1,9 +1,9 @@
 grommunio DAV
 =============
 
-grommunio DAV is an open-source application to provide CalDAV and CardDAV to
+**grommunio DAV is an open-source application to provide CalDAV and CardDAV to
 compatible applications and devices such as macOS Calendar, macOS Contacts,
-Thunderbird/Lightning and others.
+Thunderbird/Lightning and others.**
 
 |shield-agpl|_ |shield-release|_ |shield-scrut|_ |shield-loc|
 
@@ -48,21 +48,21 @@ Getting started
 Prerequisites
 -------------
 
-* A working web server (nginx is recommended), with a working TLS configuration
-* PHP, preferably available as fpm pool
-* Zcore MAPI transport (provided by `Gromox <https://github.com/grommunio/gromox>`_)
+* A working **web server** (nginx is recommended), with a working TLS configuration
+* **PHP**, preferably available as fpm pool
+* **Zcore** MAPI transport (provided by `Gromox <https://github.com/grommunio/gromox>`_)
 
 Installation
 ------------
 
 * Deploy grommunio-dav at a location of your choice, such as
-  ``/usr/share/grommunio-dav``.
+  ``/usr/share/grommunio-dav-dev``.
 * Adapt ``version.php`` with the adequate version string, see
   `</build/version.php.in>`_.
 * Provide a default configuration file as config.php, see `</config.php>`_.
-* Adapt web server configuration according to your needs, [/build](/build)
+* Adapt web server configuration according to your needs, `</build>`_
   provides some examples.
-* Prepare PHP configuration according to your needs, [/build](/build) provides
+* Prepare PHP configuration according to your needs, `</build>`_ provides
   some examples.
 * (Optional) Setup of DNS SRV records for simplified account configuration is
   recommended:
