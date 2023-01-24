@@ -22,7 +22,7 @@
             "grommunio\\DAV\\" : "lib/"
         },
         "classmap"          : ["/usr/share/php-mapi/"],
-        "files"             : ["config.php", "version.php"]
+        "files"             : ["config.php", "version.php", "/usr/share/php-mapi/mapi.util.php", "/usr/share/php-mapi/mapidefs.php", "/usr/share/php-mapi/mapiguid.php", "/usr/share/php-mapi/mapitags.php"]
     },
     "minimum-stability"     : "stable"
 }
