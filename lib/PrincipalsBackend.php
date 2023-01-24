@@ -16,8 +16,6 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 * Constructor.
 	 */
 	public function __construct(GrommunioDavBackend $gDavBackend) {
-		file_put_contents('/tmp/grommunio-dav.log', "construct principals\n", FILE_APPEND);
-
 		$this->gDavBackend = $gDavBackend;
 	}
 
