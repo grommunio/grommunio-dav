@@ -253,7 +253,7 @@ class GLogger {
 	 * @param int    $errline
 	 * @param mixed  $errcontext
 	 */
-	public static function ErrorHandler($errno, $errstr, $errfile, $errline, $errcontext) {
+	public static function ErrorHandler($errno, $errstr, $errfile, $errline, $errcontext = []) {
 		// this is from Z-Push but might be helpful in the future: https://wiki.z-hub.io/x/sIEa
 		if (defined('LOG_ERROR_MASK')) {
 			$errno &= LOG_ERROR_MASK;
