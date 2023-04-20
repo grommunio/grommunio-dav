@@ -4,22 +4,25 @@
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
  * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
  *
- * A wrapper for log4php Logger.
+ * A wrapper for Monolog Logger.
  */
 
 namespace grommunio\DAV;
 
+use grommunio\DAV\MonologWrapper as Logger;
+use Monolog\Formatter\LineFormatter;
+use Monolog\Handler\StreamHandler;
+use Monolog\Handler\ErrorLogHandler;
+use Monolog\Processor\ProcessIdProcessor;
+
 /**
- * GLogger: wraps the php4log logger to log with better performance.
- *
- * We tried to extend \Logger but this isn't possible due to
- * the static methods depending on Logger::getHierarchy() and
- * that it cannot be overwritten (due to the use of self in Logger).
+ * GLogger: wraps the monolog Logger
  *
  * If you want other methods of Logger please add a wrapper method to this class.
  */
 class GLogger {
 	protected static $listOfLoggers = [];
+	protected static $parentLogger;
 	protected $logger;
 
 	/**
@@ -28,10 +31,10 @@ class GLogger {
 	 * @param mixed $name
 	 */
 	public function __construct($name) {
-		$this->logger = \Logger::getLogger($name);
+        $this->logger = self::$parentLogger->withName($name);
 
 		// keep an output puffer in case we do debug logging
-		if ($this->logger->isDebugEnabled()) {
+		if ($this->logger->isHandling(Logger::DEBUG)) {
 			ob_start();
 		}
 
@@ -40,29 +43,92 @@ class GLogger {
 	}
 
 	/**
-	 * Configures log4php.
+	 * Configures parent monolog Logger.
 	 *
 	 * This method needs to be called before the first logging event has
-	 * occurred. If this method is not called before then the default
-	 * configuration will be used.
+	 * occurred.
 	 *
 	 * @param array|string              $configuration either a path to the configuration
 	 *                                                 file, or a configuration array
-	 * @param LoggerConfigurator|string $configurator  A custom
-	 *                                                 configurator class: either a class name (string), or an object which
-	 *                                                 implements the LoggerConfigurator interface. If left empty, the default
-	 *                                                 configurator implementation will be used.
 	 */
-	public static function configure($configuration = null, $configurator = null) {
-		\Logger::configure($configuration, $configurator);
+	public static function configure($configuration = null) {
+
+        // Load configuration from ini-file if a file path (string) is given
+        if (is_string($configuration)) {
+            $configuration = parse_ini_file($configuration);
+            if (!is_array($configuration))
+                throw new \Exception('Invalid GLogger configuration file');
+        } elseif (!is_array($configuration)) {
+            throw new \Exception('GLogger configuration should be either a string with path to the configuration file, or a configuration array');
+        }
+
+        // Log level
+        if (!isset($configuration['level']))
+            $configuration['level'] = 'INFO';
+        elseif (!is_string($configuration['level'])) {
+            throw new \Exception('GLogger configuration parameter "level" is not a string');
+        }
+
+        $configuration['level'] = strtoupper($configuration['level']);
+        $allLogLevels = Logger::getLevels();
+
+        if (!isset($allLogLevels[$configuration['level']]))
+            throw new \Exception('GLogger configuration parameter "level" is not known');
+
+        $logLevel = $allLogLevels[$configuration['level']];
+
+        // Parent logger class
+        static::$parentLogger = new Logger('');
+
+        // Without configuration parameter 'file' all log messages will go to error_log()
+        if (isset($configuration['file'])) {
+            if (!is_string($configuration['file']))
+                throw new \Exception('GLogger configuration parameter "file" is not a string');
+
+            $stream = new StreamHandler($configuration['file'], $logLevel);
+        } else {
+            $stream = new ErrorLogHandler(ErrorLogHandler::OPERATING_SYSTEM, $logLevel);
+        }
+
+        // Log messages formatting
+        $lineFormat = null;
+
+        if (isset($configuration['lineFormat'])
+            && is_string($configuration['lineFormat']))
+            $lineFormat = stripcslashes($configuration['lineFormat']); // stripcslashes to recognize "\n"
+
+        $timeFormat = null;
+
+        if (isset($configuration['timeFormat'])
+            && is_string($configuration['timeFormat']))
+            $timeFormat = $configuration['timeFormat'];
+
+        if ($lineFormat
+            || $timeFormat) {
+
+            $formatter = new LineFormatter($lineFormat, $timeFormat, true, true);
+            $stream->setFormatter($formatter);
+        }
+
+        static::$parentLogger->pushHandler($stream);
+
+        // Add processor id (pid) to log messages
+        static::$parentLogger->pushProcessor(new ProcessIdProcessor());
 	}
 
 	/**
 	 * Destroy configurations for logger definitions.
 	 */
 	public function resetConfiguration() {
-		\Logger::resetConfiguration();
+        if (static::$parentLogger) {
+            static::$parentLogger->reset();
+            static::$parentLogger = null;
+        }
 	}
+
+	public function getGPSR3Logger() {
+        return $this->logger;
+    }
 
 	/**
 	 * Returns a GLogger by name. If it does not exist, it will be created.
@@ -100,7 +166,7 @@ class GLogger {
 	 */
 	public function LogIncoming(\Sabre\HTTP\RequestInterface $request) {
 		// only do any of this is we are looking for debug messages
-		if ($this->logger->isDebugEnabled()) {
+		if ($this->logger->isHandling(Logger::DEBUG)) {
 			$inputHeader = $request->getMethod() . ' ' . $request->getUrl() . ' HTTP/' . $request->getHTTPVersion() . "\r\n";
 			foreach ($request->getHeaders() as $key => $value) {
 				if ($key === 'Authorization') {
@@ -130,7 +196,7 @@ class GLogger {
 	 */
 	public function LogOutgoing(\Sabre\HTTP\ResponseInterface $response) {
 		// only do any of this is we are looking for debug messages
-		if ($this->logger->isDebugEnabled()) {
+		if ($this->logger->isHandling(Logger::DEBUG)) {
 			$output = 'HTTP/' . $response->getHttpVersion() . ' ' . $response->getStatus() . ' ' . $response->getStatusText() . "\n";
 			foreach ($response->getHeaders() as $key => $value) {
 				$output .= $key . ": " . implode(',', $value) . "\n";
@@ -170,7 +236,7 @@ class GLogger {
 		// This also prevents throwing errors if there are %-chars in the $outArgs.
 		$message = (count($outArgs) > 1) ? call_user_func_array('sprintf', $outArgs) : $outArgs[0];
 		// prepend class+method and log the message
-		$this->logger->log($level, $this->getCaller(2) . $message . $suffix, null);
+		$this->logger->log($level, $this->getCaller(2) . $message . $suffix);
 	}
 
 	/**
@@ -309,8 +375,8 @@ class GLogger {
 				return;
 			}
 		}
-		if ($this->logger->isTraceEnabled()) {
-			$this->writeLog(\LoggerLevel::getLevelTrace(), func_get_args());
+		if ($this->logger->isHandling(Logger::TRACE)) {
+			$this->writeLog(Logger::TRACE, func_get_args());
 		}
 	}
 
@@ -328,8 +394,8 @@ class GLogger {
 				return;
 			}
 		}
-		if ($this->logger->isDebugEnabled()) {
-			$this->writeLog(\LoggerLevel::getLevelDebug(), func_get_args());
+		if ($this->logger->isHandling(Logger::DEBUG)) {
+			$this->writeLog(Logger::DEBUG, func_get_args());
 		}
 	}
 
@@ -347,8 +413,8 @@ class GLogger {
 				return;
 			}
 		}
-		if ($this->logger->isInfoEnabled()) {
-			$this->writeLog(\LoggerLevel::getLevelInfo(), func_get_args());
+		if ($this->logger->isHandling(Logger::INFO)) {
+			$this->writeLog(Logger::INFO, func_get_args());
 		}
 	}
 
@@ -366,8 +432,8 @@ class GLogger {
 				return;
 			}
 		}
-		if ($this->logger->isWarnEnabled()) {
-			$this->writeLog(\LoggerLevel::getLevelWarn(), func_get_args(), ' - ' . $this->getCaller(1, true));
+		if ($this->logger->isHandling(Logger::WARNING)) {
+			$this->writeLog(Logger::WARNING, func_get_args(), ' - ' . $this->getCaller(1, true));
 		}
 	}
 
@@ -385,8 +451,8 @@ class GLogger {
 				return;
 			}
 		}
-		if ($this->logger->isErrorEnabled()) {
-			$this->writeLog(\LoggerLevel::getLevelError(), func_get_args(), ' - ' . $this->getCaller(1, true));
+		if ($this->logger->isHandling(Logger::ERROR)) {
+			$this->writeLog(Logger::ERROR, func_get_args(), ' - ' . $this->getCaller(1, true));
 		}
 	}
 
@@ -404,8 +470,8 @@ class GLogger {
 				return;
 			}
 		}
-		if ($this->logger->isFatalEnabled()) {
-			$this->writeLog(\LoggerLevel::getLevelFatal(), func_get_args(), ' - ' . $this->getCaller(1, true));
+		if ($this->logger->isHandling(Logger::CRITICAL)) {
+			$this->writeLog(Logger::CRITICAL, func_get_args(), ' - ' . $this->getCaller(1, true));
 		}
 	}
 }

@@ -24,4 +24,4 @@ define('MAX_SYNC_ITEMS', 1000);
 // Developer mode: verifies log messages
 define('DEVELOPER_MODE', true);
 
-// Logging: adjust in log4php.xml
+// Logging: adjust in glogger.ini

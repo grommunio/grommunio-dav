@@ -3,7 +3,7 @@
     "description"           : "This is grommunio's DAV implementation",
     "require": {
         "sabre/dav"         : "~4.4.0",
-        "apache/log4php"    : "~2.3.0",
+        "monolog/monolog"   : "2.9.1",
         "psr/log"           : "^1.1.4"
     },
     "require-dev": {

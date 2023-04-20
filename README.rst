@@ -77,8 +77,8 @@ Installation
 Logging
 -------
 
-grommunio DAV uses `log4php <http://logging.apache.org/log4php/>`_ for logging.
-Adjust `</log4php.xml>`_ to match your needs.
+grommunio DAV uses `monolog <https://seldaek.github.io/monolog/>`_ for logging.
+Adjust `</glogger.ini>`_ to match your needs.
 
 Usage
 -----

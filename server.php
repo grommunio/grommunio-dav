@@ -13,7 +13,7 @@ namespace grommunio\DAV;
 require __DIR__ . '/vendor/autoload.php';
 
 // Configure & create main logger
-GLogger::configure(__DIR__ . '/log4php.xml');
+GLogger::configure(__DIR__ . '/glogger.ini');
 $logger = new GLogger('main');
 
 // don't log any Sabre asset requests (images etc)
@@ -44,7 +44,7 @@ $nodes = [
 // initialize the server
 $server = new \Sabre\DAV\Server($nodes);
 $server->setBaseUri(DAV_ROOT_URI);
-$server->setLogger(new GPSR3Logger($logger));
+$server->setLogger($logger->getGPSR3Logger());
 
 $authPlugin = new \Sabre\DAV\Auth\Plugin($authBackend, SABRE_AUTH_REALM);
 $server->addPlugin($authPlugin);
