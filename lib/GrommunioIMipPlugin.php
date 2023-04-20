@@ -9,11 +9,13 @@
 
 namespace grommunio\DAV;
 
-class GrommunioIMipPlugin extends \Sabre\CalDAV\Schedule\IMipPlugin {
+class GrommunioIMipPlugin extends \Sabre\CalDAV\Schedule\IMipPlugin
+{
 	/**
 	 * Constructor.
 	 */
-	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
+	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger)
+	{
 		$this->gDavBackend = $gDavBackend;
 		$this->logger = $glogger;
 	}
@@ -24,7 +26,8 @@ class GrommunioIMipPlugin extends \Sabre\CalDAV\Schedule\IMipPlugin {
 	 * Using the information in iTipMessage to send out a meeting
 	 * invitation.
 	 */
-	public function schedule(\Sabre\VObject\ITip\Message $iTipMessage) {
+	public function schedule(\Sabre\VObject\ITip\Message $iTipMessage)
+	{
 		$this->logger->trace("method: %s - recipient: %s - significantChange: %d - scheduleStatus: %s - message: %s", $iTipMessage->method, $iTipMessage->recipient, $iTipMessage->significantChange, $iTipMessage->scheduleStatus, $iTipMessage->message->serialize());
 
 		if (!$iTipMessage->significantChange) {

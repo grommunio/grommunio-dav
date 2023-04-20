@@ -9,7 +9,8 @@
 
 namespace grommunio\DAV;
 
-class DAVACL extends \Sabre\DAVACL\Plugin {
+class DAVACL extends \Sabre\DAVACL\Plugin
+{
 	/**
 	 * Returns the full ACL list.
 	 *
@@ -21,7 +22,8 @@ class DAVACL extends \Sabre\DAVACL\Plugin {
 	 *
 	 * @return array
 	 */
-	public function getACL($node) {
+	public function getACL($node)
+	{
 		return [
 			[
 				'privilege' => '{DAV:}all',

@@ -9,7 +9,8 @@
 
 namespace grommunio\DAV;
 
-class GrommunioSyncState {
+class GrommunioSyncState
+{
 	private $db;
 
 	/**
@@ -18,7 +19,8 @@ class GrommunioSyncState {
 	 * @param GLogger $logger
 	 * @param string  $dbstring
 	 */
-	public function __construct($logger, $dbstring) {
+	public function __construct($logger, $dbstring)
+	{
 		$this->logger = $logger;
 		$this->logger->trace("Using db %s", $dbstring);
 		$this->db = new \PDO($dbstring);
@@ -41,7 +43,8 @@ class GrommunioSyncState {
 	 *
 	 * @return string
 	 */
-	public function getState($folderid, $id) {
+	public function getState($folderid, $id)
+	{
 		$query = "SELECT value FROM gdav_sync_state WHERE folderid = :folderid AND id = :id";
 		$statement = $this->db->prepare($query);
 		$statement->bindParam(":folderid", $folderid);
@@ -63,7 +66,8 @@ class GrommunioSyncState {
 	 * @param string $id
 	 * @param string $value
 	 */
-	public function setState($folderid, $id, $value) {
+	public function setState($folderid, $id, $value)
+	{
 		$query = "REPLACE INTO gdav_sync_state (id, folderid, value) VALUES(:id, :folderid, :value)";
 		$statement = $this->db->prepare($query);
 		$statement->bindParam(":folderid", $folderid);
@@ -80,7 +84,8 @@ class GrommunioSyncState {
 	 * @param string $sourcekey
 	 * @param string $appttsref
 	 */
-	public function rememberAppttsref($folderid, $sourcekey, $appttsref) {
+	public function rememberAppttsref($folderid, $sourcekey, $appttsref)
+	{
 		$query = "REPLACE INTO gdav_sync_appttsref (folderid, sourcekey, appttsref) VALUES(:folderid, :sourcekey, :appttsref)";
 		$statement = $this->db->prepare($query);
 		$statement->bindParam(":folderid", $folderid);
@@ -98,7 +103,8 @@ class GrommunioSyncState {
 	 *
 	 * @return string
 	 */
-	public function getAppttsref($folderid, $sourcekey) {
+	public function getAppttsref($folderid, $sourcekey)
+	{
 		$query = "SELECT appttsref FROM gdav_sync_appttsref WHERE folderid = :folderid AND sourcekey = :sourcekey";
 		$statement = $this->db->prepare($query);
 		$statement->bindParam(":folderid", $folderid);

@@ -9,7 +9,8 @@
 
 namespace grommunio\DAV;
 
-class PHPWrapper {
+class PHPWrapper
+{
 	private $store;
 	private $logger;
 	private $props;
@@ -28,7 +29,8 @@ class PHPWrapper {
 	 * @param GrommunioSyncState $syncstate
 	 * @param string             $folderid
 	 */
-	public function __construct($store, $logger, $props, $fileext, $syncstate, $folderid) {
+	public function __construct($store, $logger, $props, $fileext, $syncstate, $folderid)
+	{
 		$this->store = $store;
 		$this->logger = $logger;
 		$this->props = $props;
@@ -46,7 +48,8 @@ class PHPWrapper {
 	 *
 	 * @return array
 	 */
-	public function GetAdded() {
+	public function GetAdded()
+	{
 		return $this->added;
 	}
 
@@ -55,7 +58,8 @@ class PHPWrapper {
 	 *
 	 * @return array
 	 */
-	public function GetModified() {
+	public function GetModified()
+	{
 		return $this->modified;
 	}
 
@@ -64,7 +68,8 @@ class PHPWrapper {
 	 *
 	 * @return array
 	 */
-	public function GetDeleted() {
+	public function GetDeleted()
+	{
 		return $this->deleted;
 	}
 
@@ -73,7 +78,8 @@ class PHPWrapper {
 	 *
 	 * @return int
 	 */
-	public function Total() {
+	public function Total()
+	{
 		return count($this->added) + count($this->modified) + count($this->deleted);
 	}
 
@@ -86,7 +92,8 @@ class PHPWrapper {
 	 *
 	 * @return long
 	 */
-	public function ImportMessageChange($props, $flags, $retmapimessage) {
+	public function ImportMessageChange($props, $flags, $retmapimessage)
+	{
 		// if the entryid is not available, do the fallback to the sourcekey
 		if (isset($props[PR_ENTRYID])) {
 			$entryid = $props[PR_ENTRYID];
@@ -126,10 +133,9 @@ class PHPWrapper {
 	 *
 	 * @param long  $flags
 	 * @param array $sourcekeys array with sourcekeys
-	 *
-	 * @return
 	 */
-	public function ImportMessageDeletion($flags, $sourcekeys) {
+	public function ImportMessageDeletion($flags, $sourcekeys)
+	{
 		foreach ($sourcekeys as $sourcekey) {
 			$this->logger->trace("got %s", bin2hex($sourcekey));
 			$appttsref = $this->syncstate->getAppttsref($this->folderid, bin2hex($sourcekey));
@@ -143,26 +149,33 @@ class PHPWrapper {
 	}
 
 	/** Implement MAPI interface */
-	public function Config($stream, $flags = 0) {
+	public function Config($stream, $flags = 0)
+	{
 	}
 
-	public function GetLastError($hresult, $ulflags, &$lpmapierror) {
+	public function GetLastError($hresult, $ulflags, &$lpmapierror)
+	{
 	}
 
-	public function UpdateState($stream) {
+	public function UpdateState($stream)
+	{
 	}
 
-	public function ImportMessageMove($sourcekeysrcfolder, $sourcekeysrcmessage, $message, $sourcekeydestmessage, $changenumdestmessage) {
+	public function ImportMessageMove($sourcekeysrcfolder, $sourcekeysrcmessage, $message, $sourcekeydestmessage, $changenumdestmessage)
+	{
 	}
 
-	public function ImportPerUserReadStateChange($readstates) {
+	public function ImportPerUserReadStateChange($readstates)
+	{
 	}
 
-	public function ImportFolderChange($props) {
+	public function ImportFolderChange($props)
+	{
 		return 0;
 	}
 
-	public function ImportFolderDeletion($flags, $sourcekeys) {
+	public function ImportFolderDeletion($flags, $sourcekeys)
+	{
 		return 0;
 	}
 }

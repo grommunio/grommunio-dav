@@ -9,7 +9,8 @@
 
 namespace grommunio\DAV;
 
-class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend implements \Sabre\CardDAV\Backend\SyncSupport {
+class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend implements \Sabre\CardDAV\Backend\SyncSupport
+{
 	private $logger;
 	protected $gDavBackend;
 
@@ -20,7 +21,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	/**
 	 * Constructor.
 	 */
-	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
+	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger)
+	{
 		$this->gDavBackend = $gDavBackend;
 		$this->logger = $glogger;
 	}
@@ -43,7 +45,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @return array
 	 */
-	public function getAddressBooksForUser($principalUri) {
+	public function getAddressBooksForUser($principalUri)
+	{
 		$this->logger->trace("principalUri: %s", $principalUri);
 
 		return $this->gDavBackend->GetFolders($principalUri, static::CONTAINER_CLASSES);
@@ -63,7 +66,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @param string $addressBookId
 	 */
-	public function updateAddressBook($addressBookId, \Sabre\DAV\PropPatch $propPatch) {
+	public function updateAddressBook($addressBookId, \Sabre\DAV\PropPatch $propPatch)
+	{
 		// TODO is our logger able to log this object? It probably needs to be adapted.
 		$this->logger->trace("addressBookId: %s - proppatch: %s", $addressBookId, $propPatch);
 	}
@@ -79,7 +83,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @return mixed
 	 */
-	public function createAddressBook($principalUri, $url, array $properties) {
+	public function createAddressBook($principalUri, $url, array $properties)
+	{
 		$this->logger->trace("principalUri: %s - url: %s - properties: %s", $principalUri, $url, $properties);
 		// TODO Add displayname
 		return $this->gDavBackend->CreateFolder($principalUri, $url, static::CONTAINER_CLASS, "");
@@ -90,7 +95,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @param mixed $addressBookId
 	 */
-	public function deleteAddressBook($addressBookId) {
+	public function deleteAddressBook($addressBookId)
+	{
 		$this->logger->trace("addressBookId: %s", $addressBookId);
 		$success = $this->gDavBackend->DeleteFolder($addressBookId);
 		// TODO evaluate $success
@@ -116,7 +122,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @return array
 	 */
-	public function getCards($addressbookId) {
+	public function getCards($addressbookId)
+	{
 		$result = $this->gDavBackend->GetObjects($addressbookId, static::FILE_EXTENSION);
 		$this->logger->trace("addressbookId: %s found %d objects", $addressbookId, count($result));
 
@@ -137,7 +144,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @return array
 	 */
-	public function getCard($addressBookId, $cardUri, $mapifolder = null) {
+	public function getCard($addressBookId, $cardUri, $mapifolder = null)
+	{
 		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);
 
 		if (!$mapifolder) {
@@ -200,7 +208,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @return null|string
 	 */
-	public function createCard($addressBookId, $cardUri, $cardData) {
+	public function createCard($addressBookId, $cardUri, $cardData)
+	{
 		$this->logger->trace("addressBookId: %s - cardUri: %s - cardData: %s", $addressBookId, $cardUri, $cardData);
 		$objectId = $this->gDavBackend->GetObjectIdFromObjectUri($cardUri, static::FILE_EXTENSION);
 		$folder = $this->gDavBackend->GetMapiFolder($addressBookId);
@@ -239,7 +248,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @return null|string
 	 */
-	public function updateCard($addressBookId, $cardUri, $cardData) {
+	public function updateCard($addressBookId, $cardUri, $cardData)
+	{
 		$this->logger->trace("addressBookId: %s - cardUri: %s - cardData: %s", $addressBookId, $cardUri, $cardData);
 
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($addressBookId, $cardUri, null, static::FILE_EXTENSION);
@@ -260,7 +270,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @return null|string
 	 */
-	private function setData($addressBookId, $mapimessage, $vcf) {
+	private function setData($addressBookId, $mapimessage, $vcf)
+	{
 		$this->logger->trace("mapimessage: %s - vcf: %s", $mapimessage, $vcf);
 		$store = $this->gDavBackend->GetStoreById($addressBookId);
 		$session = $this->gDavBackend->GetSession();
@@ -285,7 +296,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @return bool
 	 */
-	public function deleteCard($addressBookId, $cardUri) {
+	public function deleteCard($addressBookId, $cardUri)
+	{
 		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);
 		$mapifolder = $this->gDavBackend->GetMapiFolder($addressBookId);
 		$objectId = $this->gDavBackend->GetObjectIdFromObjectUri($cardUri, static::FILE_EXTENSION);
@@ -354,7 +366,8 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @return array
 	 */
-	public function getChangesForAddressBook($addressBookId, $syncToken, $syncLevel, $limit = null) {
+	public function getChangesForAddressBook($addressBookId, $syncToken, $syncLevel, $limit = null)
+	{
 		$this->logger->trace("addressBookId: %s - syncToken: %s - syncLevel: %d - limit: %d", $addressBookId, $syncToken, $syncLevel, $limit);
 
 		return $this->gDavBackend->Sync($addressBookId, $syncToken, static::FILE_EXTENSION, $limit);

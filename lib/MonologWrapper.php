@@ -7,22 +7,22 @@
 
 namespace grommunio\DAV;
 
-class MonologWrapper extends \Monolog\Logger {
+class MonologWrapper extends \Monolog\Logger
+{
+	/**
+	 * Trace information.
+	 */
+	public const TRACE = 70;
 
-    /**
-     * Trace information
-     */
-    public const TRACE = 70;
-
-    protected static $levels = [
-        self::TRACE     => 'TRACE',
-        self::DEBUG     => 'DEBUG',
-        self::INFO      => 'INFO',
-        self::NOTICE    => 'NOTICE',
-        self::WARNING   => 'WARNING',
-        self::ERROR     => 'ERROR',
-        self::CRITICAL  => 'CRITICAL',
-        self::ALERT     => 'ALERT',
-        self::EMERGENCY => 'EMERGENCY',
-    ];
+	protected static $levels = [
+		self::TRACE => 'TRACE',
+		self::DEBUG => 'DEBUG',
+		self::INFO => 'INFO',
+		self::NOTICE => 'NOTICE',
+		self::WARNING => 'WARNING',
+		self::ERROR => 'ERROR',
+		self::CRITICAL => 'CRITICAL',
+		self::ALERT => 'ALERT',
+		self::EMERGENCY => 'EMERGENCY',
+	];
 }
