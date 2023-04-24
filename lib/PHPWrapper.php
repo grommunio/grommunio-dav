@@ -133,8 +133,9 @@ class PHPWrapper {
 		foreach ($sourcekeys as $sourcekey) {
 			$this->logger->trace("got %s", bin2hex($sourcekey));
 			$appttsref = $this->syncstate->getAppttsref($this->folderid, bin2hex($sourcekey));
+			// the same name as reported by ImportMessageChange()
 			if ($appttsref !== null) {
-				$this->deleted[] = $appttsref . $this->fileext;
+				$this->deleted[] = rawurlencode($appttsref) . $this->fileext;
 			}
 			else {
 				$this->deleted[] = bin2hex($sourcekey) . $this->fileext;
