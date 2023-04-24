@@ -9,15 +9,13 @@
 
 namespace grommunio\DAV;
 
-class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterface
-{
+class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterface {
 	protected $gDavBackend;
 
 	/**
 	 * Constructor.
 	 */
-	public function __construct(GrommunioDavBackend $gDavBackend)
-	{
+	public function __construct(GrommunioDavBackend $gDavBackend) {
 		$this->gDavBackend = $gDavBackend;
 	}
 
@@ -38,8 +36,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @return array
 	 */
-	public function getPrincipalsByPrefix($prefixPath)
-	{
+	public function getPrincipalsByPrefix($prefixPath) {
 		$principals = [];
 		if ($prefixPath === 'principals') {
 			$principals[] = $this->getPrincipalByPath($prefixPath);
@@ -58,8 +55,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @return array
 	 */
-	public function getPrincipalByPath($path)
-	{
+	public function getPrincipalByPath($path) {
 		if ($path === 'principals/public') {
 			return [
 				'id' => 'public',
@@ -104,8 +100,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @param string $path
 	 */
-	public function updatePrincipal($path, \Sabre\DAV\PropPatch $propPatch)
-	{
+	public function updatePrincipal($path, \Sabre\DAV\PropPatch $propPatch) {
 	}
 
 	/**
@@ -137,8 +132,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @return array
 	 */
-	public function searchPrincipals($prefixPath, array $searchProperties, $test = 'allof')
-	{
+	public function searchPrincipals($prefixPath, array $searchProperties, $test = 'allof') {
 	}
 
 	/**
@@ -159,8 +153,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @return string
 	 */
-	public function findByUri($uri, $principalPrefix)
-	{
+	public function findByUri($uri, $principalPrefix) {
 	}
 
 	/**
@@ -170,8 +163,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @return array
 	 */
-	public function getGroupMemberSet($principal)
-	{
+	public function getGroupMemberSet($principal) {
 		return [];
 	}
 
@@ -182,8 +174,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @return array
 	 */
-	public function getGroupMembership($principal)
-	{
+	public function getGroupMembership($principal) {
 		return [];
 	}
 
@@ -194,7 +185,6 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @param string $principal
 	 */
-	public function setGroupMemberSet($principal, array $members)
-	{
+	public function setGroupMemberSet($principal, array $members) {
 	}
 }

@@ -9,13 +9,11 @@
 
 namespace grommunio\DAV;
 
-class GrommunioSchedulePlugin extends \Sabre\CalDAV\Schedule\Plugin
-{
+class GrommunioSchedulePlugin extends \Sabre\CalDAV\Schedule\Plugin {
 	/**
 	 * Constructor.
 	 */
-	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger)
-	{
+	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
 		$this->gDavBackend = $gDavBackend;
 		$this->logger = $glogger;
 	}
@@ -30,8 +28,7 @@ class GrommunioSchedulePlugin extends \Sabre\CalDAV\Schedule\Plugin
 	 *
 	 * @return array
 	 */
-	protected function getFreeBusyForEmail($email, \DateTimeInterface $start, \DateTimeInterface $end, \Sabre\VObject\Component $request)
-	{
+	protected function getFreeBusyForEmail($email, \DateTimeInterface $start, \DateTimeInterface $end, \Sabre\VObject\Component $request) {
 		$this->logger->trace("email: %s - start: %d - end: %d", $email, $start->getTimestamp(), $end->getTimestamp());
 
 		$addrbook = $this->gDavBackend->GetAddressBook();

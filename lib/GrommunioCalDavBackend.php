@@ -9,8 +9,7 @@
 
 namespace grommunio\DAV;
 
-class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend implements \Sabre\CalDAV\Backend\SchedulingSupport, \Sabre\CalDAV\Backend\SyncSupport
-{
+class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend implements \Sabre\CalDAV\Backend\SchedulingSupport, \Sabre\CalDAV\Backend\SyncSupport {
 	/*
 	 * TODO IMPLEMENT
 	 *
@@ -29,8 +28,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	/**
 	 * Constructor.
 	 */
-	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger)
-	{
+	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
 		$this->gDavBackend = $gDavBackend;
 		$this->logger = $glogger;
 	}
@@ -44,8 +42,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 * @param string       $calendarId
 	 * @param mapiresource $calendar
 	 */
-	private function UpdateFB($calendarId, $calendar)
-	{
+	private function UpdateFB($calendarId, $calendar) {
 		$session = $this->gDavBackend->GetSession();
 		$store = $this->gDavBackend->GetStoreById($calendarId);
 		$weekUnixTime = 7 * 24 * 60 * 60;
@@ -84,8 +81,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return array
 	 */
-	public function getCalendarsForUser($principalUri)
-	{
+	public function getCalendarsForUser($principalUri) {
 		$this->logger->trace("principalUri: %s", $principalUri);
 
 		return $this->gDavBackend->GetFolders($principalUri, static::CONTAINER_CLASSES);
@@ -102,8 +98,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return string
 	 */
-	public function createCalendar($principalUri, $calendarUri, array $properties)
-	{
+	public function createCalendar($principalUri, $calendarUri, array $properties) {
 		$this->logger->trace("principalUri: %s - calendarUri: %s - properties: %s", $principalUri, $calendarUri, $properties);
 		// TODO Add displayname
 		return $this->gDavBackend->CreateFolder($principalUri, $calendarUri, static::CONTAINER_CLASS, "");
@@ -114,8 +109,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @param string $calendarId
 	 */
-	public function deleteCalendar($calendarId)
-	{
+	public function deleteCalendar($calendarId) {
 		$this->logger->trace("calendarId: %s", $calendarId);
 		$success = $this->gDavBackend->DeleteFolder($calendarId);
 		// TODO evaluate $success
@@ -153,8 +147,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return array
 	 */
-	public function getCalendarObjects($calendarId)
-	{
+	public function getCalendarObjects($calendarId) {
 		$result = $this->gDavBackend->GetObjects($calendarId, static::FILE_EXTENSION);
 		$this->logger->trace("calendarId: %s found %d objects", $calendarId, count($result));
 
@@ -210,8 +203,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return array
 	 */
-	public function calendarQuery($calendarId, array $filters)
-	{
+	public function calendarQuery($calendarId, array $filters) {
 		$start = $end = null;
 		$types = [];
 		foreach ($filters['comp-filters'] as $filter) {
@@ -266,8 +258,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return null|array
 	 */
-	public function getCalendarObject($calendarId, $objectUri, $mapifolder = null)
-	{
+	public function getCalendarObject($calendarId, $objectUri, $mapifolder = null) {
 		$this->logger->trace("calendarId: %s - objectUri: %s - mapifolder: %s", $calendarId, $objectUri, $mapifolder);
 
 		if (!$mapifolder) {
@@ -333,8 +324,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return null|string
 	 */
-	public function createCalendarObject($calendarId, $objectUri, $calendarData)
-	{
+	public function createCalendarObject($calendarId, $objectUri, $calendarData) {
 		$this->logger->trace("calendarId: %s - objectUri: %s - calendarData: %s", $calendarId, $objectUri, $calendarData);
 		$objectId = $this->gDavBackend->GetObjectIdFromObjectUri($objectUri, static::FILE_EXTENSION);
 		$folder = $this->gDavBackend->GetMapiFolder($calendarId);
@@ -366,8 +356,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return null|string
 	 */
-	public function updateCalendarObject($calendarId, $objectUri, $calendarData)
-	{
+	public function updateCalendarObject($calendarId, $objectUri, $calendarData) {
 		$this->logger->trace("calendarId: %s - objectUri: %s - calendarData: %s", $calendarId, $objectUri, $calendarData);
 
 		$folder = $this->gDavBackend->GetMapiFolder($calendarId);
@@ -389,8 +378,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return null|string
 	 */
-	private function setData($calendarId, $mapimessage, $ics)
-	{
+	private function setData($calendarId, $mapimessage, $ics) {
 		$this->logger->trace("mapimessage: %s - ics: %s", $mapimessage, $ics);
 		// this should be cached or moved to gDavBackend
 		$store = $this->gDavBackend->GetStoreById($calendarId);
@@ -465,8 +453,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 * @param string $calendarId
 	 * @param string $objectUri
 	 */
-	public function deleteCalendarObject($calendarId, $objectUri)
-	{
+	public function deleteCalendarObject($calendarId, $objectUri) {
 		$this->logger->trace("calendarId: %s - objectUri: %s", $calendarId, $objectUri);
 
 		$mapifolder = $this->gDavBackend->GetMapiFolder($calendarId);
@@ -488,8 +475,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return array
 	 */
-	public function getSchedulingObject($principalUri, $objectUri)
-	{
+	public function getSchedulingObject($principalUri, $objectUri) {
 		$this->logger->trace("principalUri: %s - objectUri: %s", $principalUri, $objectUri);
 
 		return [];
@@ -504,8 +490,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return array
 	 */
-	public function getSchedulingObjects($principalUri)
-	{
+	public function getSchedulingObjects($principalUri) {
 		$this->logger->trace("principalUri: %s", $principalUri);
 
 		return [];
@@ -519,8 +504,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 * @param string $principalUri
 	 * @param string $objectUri
 	 */
-	public function deleteSchedulingObject($principalUri, $objectUri)
-	{
+	public function deleteSchedulingObject($principalUri, $objectUri) {
 		$this->logger->trace("principalUri: %s - objectUri: %s", $principalUri, $objectUri);
 	}
 
@@ -533,8 +517,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 * @param string $objectUri
 	 * @param string $objectData
 	 */
-	public function createSchedulingObject($principalUri, $objectUri, $objectData)
-	{
+	public function createSchedulingObject($principalUri, $objectUri, $objectData) {
 		$this->logger->trace("principalUri: %s - objectUri: %s - objectData: %s", $principalUri, $objectUri, $objectData);
 	}
 
@@ -547,8 +530,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return string
 	 */
-	public function getSchedulingInboxCtag($principalUri)
-	{
+	public function getSchedulingInboxCtag($principalUri) {
 		$this->logger->trace("principalUri: %s", $principalUri);
 
 		return "empty";
@@ -611,8 +593,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 *
 	 * @return array
 	 */
-	public function getChangesForCalendar($calendarId, $syncToken, $syncLevel, $limit = null)
-	{
+	public function getChangesForCalendar($calendarId, $syncToken, $syncLevel, $limit = null) {
 		$this->logger->trace("calendarId: %s - syncToken: %s - syncLevel: %d - limit: %d", $calendarId, $syncToken, $syncLevel, $limit);
 
 		return $this->gDavBackend->Sync($calendarId, $syncToken, static::FILE_EXTENSION, $limit);

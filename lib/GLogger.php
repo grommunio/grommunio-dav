@@ -20,8 +20,7 @@ use Monolog\Processor\ProcessIdProcessor;
  *
  * If you want other methods of Logger please add a wrapper method to this class.
  */
-class GLogger
-{
+class GLogger {
 	protected static $listOfLoggers = [];
 	protected static $parentLogger;
 	protected $logger;
@@ -31,8 +30,7 @@ class GLogger
 	 *
 	 * @param mixed $name
 	 */
-	public function __construct($name)
-	{
+	public function __construct($name) {
 		$this->logger = self::$parentLogger->withName($name);
 
 		// keep an output puffer in case we do debug logging
@@ -53,8 +51,7 @@ class GLogger
 	 * @param array|string $configuration either a path to the configuration
 	 *                                    file, or a configuration array
 	 */
-	public static function configure($configuration = null)
-	{
+	public static function configure($configuration = null) {
 		// Load configuration from ini-file if a file path (string) is given
 		if (is_string($configuration)) {
 			$configuration = parse_ini_file($configuration);
@@ -128,16 +125,14 @@ class GLogger
 	/**
 	 * Destroy configurations for logger definitions.
 	 */
-	public function resetConfiguration()
-	{
+	public function resetConfiguration() {
 		if (static::$parentLogger) {
 			static::$parentLogger->reset();
 			static::$parentLogger = null;
 		}
 	}
 
-	public function getGPSR3Logger()
-	{
+	public function getGPSR3Logger() {
 		return $this->logger;
 	}
 
@@ -149,8 +144,7 @@ class GLogger
 	 *
 	 * @return Logger
 	 */
-	public static function GetLogger($class)
-	{
+	public static function GetLogger($class) {
 		if (!isset(static::$listOfLoggers[$class])) {
 			static::$listOfLoggers[$class] = new GLogger(static::GetClassnameOnly($class));
 		}
@@ -165,8 +159,7 @@ class GLogger
 	 *
 	 * @return string
 	 */
-	protected static function GetClassnameOnly($namespaceWithClass)
-	{
+	protected static function GetClassnameOnly($namespaceWithClass) {
 		if (strpos($namespaceWithClass, '\\') == false) {
 			return $namespaceWithClass;
 		}
@@ -177,8 +170,7 @@ class GLogger
 	/**
 	 * Logs the incoming data (headers + body) to debug.
 	 */
-	public function LogIncoming(\Sabre\HTTP\RequestInterface $request)
-	{
+	public function LogIncoming(\Sabre\HTTP\RequestInterface $request) {
 		// only do any of this is we are looking for debug messages
 		if ($this->logger->isHandling(Logger::DEBUG)) {
 			$inputHeader = $request->getMethod() . ' ' . $request->getUrl() . ' HTTP/' . $request->getHTTPVersion() . "\r\n";
@@ -208,8 +200,7 @@ class GLogger
 	/**
 	 * Logs the outgoing data (headers + body) to debug.
 	 */
-	public function LogOutgoing(\Sabre\HTTP\ResponseInterface $response)
-	{
+	public function LogOutgoing(\Sabre\HTTP\ResponseInterface $response) {
 		// only do any of this is we are looking for debug messages
 		if ($this->logger->isHandling(Logger::DEBUG)) {
 			$output = 'HTTP/' . $response->getHttpVersion() . ' ' . $response->getStatus() . ' ' . $response->getStatusText() . "\n";
@@ -238,8 +229,7 @@ class GLogger
 	 * @param array        $args
 	 * @param string       $suffix an optional suffix that is appended to the message
 	 */
-	protected function writeLog($level, $args, $suffix = '')
-	{
+	protected function writeLog($level, $args, $suffix = '') {
 		$outArgs = [];
 		foreach ($args as $arg) {
 			if (is_array($arg)) {
@@ -262,8 +252,7 @@ class GLogger
 	 *
 	 * @return bool
 	 */
-	protected function verifyLogSyntax($arguments)
-	{
+	protected function verifyLogSyntax($arguments) {
 		$count = count($arguments);
 		$quoted_procent = substr_count($arguments[0], "%%");
 		$t = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
@@ -292,8 +281,7 @@ class GLogger
 	 *
 	 * @return string
 	 */
-	protected function getCaller($level = 1, $fileline = false)
-	{
+	protected function getCaller($level = 1, $fileline = false) {
 		$wlevel = $level + 1;
 		$t = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $wlevel + 1);
 		if (isset($t[$wlevel]['function'])) {
@@ -315,8 +303,7 @@ class GLogger
 	 *
 	 * @return string
 	 */
-	public function FormatBytes($bytes, $precision = 2)
-	{
+	public function FormatBytes($bytes, $precision = 2) {
 		if ($bytes <= 0) {
 			return '0 B';
 		}
@@ -338,8 +325,7 @@ class GLogger
 	 * @param int    $errline
 	 * @param mixed  $errcontext
 	 */
-	public static function ErrorHandler($errno, $errstr, $errfile, $errline, $errcontext = [])
-	{
+	public static function ErrorHandler($errno, $errstr, $errfile, $errline, $errcontext = []) {
 		if (defined('LOG_ERROR_MASK')) {
 			$errno &= LOG_ERROR_MASK;
 		}
@@ -389,8 +375,7 @@ class GLogger
 	 * @param mixed $message message
 	 * @param mixed ...params
 	 */
-	public function trace()
-	{
+	public function trace() {
 		if (DEVELOPER_MODE) {
 			if (!$this->verifyLogSyntax(func_get_args())) {
 				return;
@@ -409,8 +394,7 @@ class GLogger
 	 * @param mixed $message message
 	 * @param mixed ...params
 	 */
-	public function debug()
-	{
+	public function debug() {
 		if (DEVELOPER_MODE) {
 			if (!$this->verifyLogSyntax(func_get_args())) {
 				return;
@@ -429,8 +413,7 @@ class GLogger
 	 * @param mixed $message message
 	 * @param mixed ...params
 	 */
-	public function info()
-	{
+	public function info() {
 		if (DEVELOPER_MODE) {
 			if (!$this->verifyLogSyntax(func_get_args())) {
 				return;
@@ -449,8 +432,7 @@ class GLogger
 	 * @param mixed $message message
 	 * @param mixed ...params
 	 */
-	public function warn()
-	{
+	public function warn() {
 		if (DEVELOPER_MODE) {
 			if (!$this->verifyLogSyntax(func_get_args())) {
 				return;
@@ -469,8 +451,7 @@ class GLogger
 	 * @param mixed $message message
 	 * @param mixed ...params
 	 */
-	public function error()
-	{
+	public function error() {
 		if (DEVELOPER_MODE) {
 			if (!$this->verifyLogSyntax(func_get_args())) {
 				return;
@@ -489,8 +470,7 @@ class GLogger
 	 * @param mixed $message message
 	 * @param mixed ...params
 	 */
-	public function fatal()
-	{
+	public function fatal() {
 		if (DEVELOPER_MODE) {
 			if (!$this->verifyLogSyntax(func_get_args())) {
 				return;

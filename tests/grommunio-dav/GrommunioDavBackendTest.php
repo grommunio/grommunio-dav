@@ -14,8 +14,7 @@ namespace grommunio\DAV;
  *
  * @coversNothing
  */
-class GrommunioDavBackendTest extends \PHPUnit_Framework_TestCase
-{
+class GrommunioDavBackendTest extends \PHPUnit_Framework_TestCase {
 	protected $gDavBackend;
 
 	/**
@@ -23,8 +22,7 @@ class GrommunioDavBackendTest extends \PHPUnit_Framework_TestCase
 	 *
 	 * @see PHPUnit_Framework_TestCase::setUp()
 	 */
-	protected function setUp()
-	{
+	protected function setUp() {
 		$gloggerMock = $this->getMockBuilder(GLogger::class)->disableOriginalConstructor()->getMock();
 		$this->gDavBackend = new GrommunioDavBackend($gloggerMock);
 	}
@@ -34,16 +32,14 @@ class GrommunioDavBackendTest extends \PHPUnit_Framework_TestCase
 	 *
 	 * @see PHPUnit_Framework_TestCase::tearDown()
 	 */
-	protected function tearDown()
-	{
+	protected function tearDown() {
 		$this->gDavBackend = null;
 	}
 
 	/**
 	 * Tests if the constructor is created without errors.
 	 */
-	public function testConstruct()
-	{
+	public function testConstruct() {
 		$this->assertTrue(is_object($this->gDavBackend));
 	}
 
@@ -56,8 +52,7 @@ class GrommunioDavBackendTest extends \PHPUnit_Framework_TestCase
 	 *
 	 * @dataProvider ObjectUriProvider
 	 */
-	public function testGetObjectIdFromObjectUri($objectUri, $extension, $expected)
-	{
+	public function testGetObjectIdFromObjectUri($objectUri, $extension, $expected) {
 		$this->assertEquals($expected, $this->gDavBackend->GetObjectIdFromObjectUri($objectUri, $extension));
 	}
 
@@ -66,8 +61,7 @@ class GrommunioDavBackendTest extends \PHPUnit_Framework_TestCase
 	 *
 	 * @return array
 	 */
-	public function ObjectUriProvider()
-	{
+	public function ObjectUriProvider() {
 		return [
 			['1234.ics', '.ics', '1234'],               // ok, cut .ics
 			['5678AF.vcf', '.vcf', '5678AF'],           // ok, cut .vcf

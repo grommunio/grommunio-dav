@@ -9,8 +9,7 @@
 
 namespace grommunio\DAV;
 
-class MapiProps
-{
+class MapiProps {
 	public const PROP_VCARDUID = "PT_UNICODE:PSETID_GROMOX:vcarduid";
 
 	/**
@@ -19,8 +18,7 @@ class MapiProps
 	 *
 	 * @return array
 	 */
-	public static function GetAppointmentProperties()
-	{
+	public static function GetAppointmentProperties() {
 		return [
 			"sourcekey" => PR_SOURCE_KEY,
 			"representingentryid" => PR_SENT_REPRESENTING_ENTRYID,

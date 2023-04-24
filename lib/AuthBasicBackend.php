@@ -9,15 +9,13 @@
 
 namespace grommunio\DAV;
 
-class AuthBasicBackend extends \Sabre\DAV\Auth\Backend\AbstractBasic
-{
+class AuthBasicBackend extends \Sabre\DAV\Auth\Backend\AbstractBasic {
 	protected $gDavBackend;
 
 	/**
 	 * Constructor.
 	 */
-	public function __construct(GrommunioDavBackend $gDavBackend)
-	{
+	public function __construct(GrommunioDavBackend $gDavBackend) {
 		$this->gDavBackend = $gDavBackend;
 	}
 
@@ -34,8 +32,7 @@ class AuthBasicBackend extends \Sabre\DAV\Auth\Backend\AbstractBasic
 	 *
 	 * @return bool
 	 */
-	protected function validateUserPass($username, $password)
-	{
+	protected function validateUserPass($username, $password) {
 		return $this->gDavBackend->Logon($username, $password);
 	}
 }

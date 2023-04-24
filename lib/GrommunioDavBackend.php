@@ -9,8 +9,7 @@
 
 namespace grommunio\DAV;
 
-class GrommunioDavBackend
-{
+class GrommunioDavBackend {
 	private $logger;
 	protected $session;
 	protected $stores;
@@ -21,8 +20,7 @@ class GrommunioDavBackend
 	/**
 	 * Constructor.
 	 */
-	public function __construct(GLogger $glogger)
-	{
+	public function __construct(GLogger $glogger) {
 		$this->logger = $glogger;
 		$this->syncstate = new GrommunioSyncState($glogger, SYNC_DB);
 	}
@@ -35,8 +33,7 @@ class GrommunioDavBackend
 	 *
 	 * @return bool
 	 */
-	public function Logon($user, $pass)
-	{
+	public function Logon($user, $pass) {
 		$this->logger->trace('%s / password', $user);
 
 		$gDavVersion = 'grommunio-dav' . @constant('GDAV_VERSION');
@@ -59,8 +56,7 @@ class GrommunioDavBackend
 	 *
 	 * @return string
 	 */
-	public function GetUser()
-	{
+	public function GetUser() {
 		$this->logger->trace($this->user);
 
 		return $this->user;
@@ -76,8 +72,7 @@ class GrommunioDavBackend
 	 *
 	 * @return string
 	 */
-	public function CreateFolder($principalUri, $url, $class, $displayname)
-	{
+	public function CreateFolder($principalUri, $url, $class, $displayname) {
 		$props = mapi_getprops($this->GetStore($principalUri), [PR_IPM_SUBTREE_ENTRYID]);
 		$folder = mapi_msgstore_openentry($this->GetStore($principalUri), $props[PR_IPM_SUBTREE_ENTRYID]);
 		$newfolder = mapi_folder_createfolder($folder, $url, $displayname);
@@ -93,8 +88,7 @@ class GrommunioDavBackend
 	 *
 	 * @return bool
 	 */
-	public function DeleteFolder($id)
-	{
+	public function DeleteFolder($id) {
 		$folder = $this->GetMapiFolder($id);
 		if (!$folder) {
 			return false;
@@ -116,8 +110,7 @@ class GrommunioDavBackend
 	 *
 	 * @return array
 	 */
-	public function GetFolders($principalUri, $classes)
-	{
+	public function GetFolders($principalUri, $classes) {
 		$this->logger->trace("principal '%s', classes '%s'", $principalUri, $classes);
 		$folders = [];
 
@@ -179,8 +172,7 @@ class GrommunioDavBackend
 	 *
 	 * @return array
 	 */
-	public function GetObjects($id, $fileExtension, $filters = [])
-	{
+	public function GetObjects($id, $fileExtension, $filters = []) {
 		$folder = $this->GetMapiFolder($id);
 		$properties = $this->GetCustomProperties($id);
 		$table = mapi_folder_getcontentstable($folder, MAPI_DEFERRED_ERRORS);
@@ -251,8 +243,7 @@ class GrommunioDavBackend
 	 *
 	 * @return mapiresource
 	 */
-	public function CreateObject($folderId, $folder, $objectId)
-	{
+	public function CreateObject($folderId, $folder, $objectId) {
 		$mapimessage = mapi_folder_createmessage($folder);
 		// we save the objectId in PROP_APPTTSREF so we find it by this id
 		$properties = $this->GetCustomProperties($folderId);
@@ -270,8 +261,7 @@ class GrommunioDavBackend
 	 *
 	 * @return mapiresource
 	 */
-	public function GetMapiFolder($folderid)
-	{
+	public function GetMapiFolder($folderid) {
 		$this->logger->trace('Id: %s', $folderid);
 		$arr = explode(':', $folderid);
 		$entryid = mapi_msgstore_entryidfromsourcekey($this->GetStore($arr[0]), hex2bin($arr[1]));
@@ -284,8 +274,7 @@ class GrommunioDavBackend
 	 *
 	 * @return MAPIAddressbook
 	 */
-	public function GetAddressBook()
-	{
+	public function GetAddressBook() {
 		// TODO should be a singleton
 		return mapi_openaddressbook($this->session);
 	}
@@ -297,8 +286,7 @@ class GrommunioDavBackend
 	 *
 	 * @return false|MAPIStore if store not available
 	 */
-	public function OpenMapiStore($username = null)
-	{
+	public function OpenMapiStore($username = null) {
 		$msgstorestable = mapi_getmsgstorestable($this->session);
 		$msgstores = mapi_table_queryallrows($msgstorestable, [PR_DEFAULT_STORE, PR_ENTRYID, PR_MDB_PROVIDER]);
 
@@ -338,8 +326,7 @@ class GrommunioDavBackend
 	 *
 	 * @return false|MAPIStore if the store is not available
 	 */
-	public function GetStore($storename)
-	{
+	public function GetStore($storename) {
 		if ($storename == null) {
 			$storename = $this->GetUser();
 		}
@@ -370,8 +357,7 @@ class GrommunioDavBackend
 	 *
 	 * @return false|\grommunio\DAV\MAPIStore on error
 	 */
-	public function GetStoreById($id)
-	{
+	public function GetStoreById($id) {
 		$arr = explode(':', $id);
 
 		return $this->GetStore($arr[0]);
@@ -382,8 +368,7 @@ class GrommunioDavBackend
 	 *
 	 * @return MAPISession
 	 */
-	public function GetSession()
-	{
+	public function GetSession() {
 		return $this->session;
 	}
 
@@ -398,8 +383,7 @@ class GrommunioDavBackend
 	 *
 	 * @return string
 	 */
-	public function GetIdOfMapiMessage($folderId, $mapimessage)
-	{
+	public function GetIdOfMapiMessage($folderId, $mapimessage) {
 		$this->logger->trace("Finding ID of %s", $mapimessage);
 		$properties = $this->GetCustomProperties($folderId);
 
@@ -433,8 +417,7 @@ class GrommunioDavBackend
 	 *
 	 * @return null|mapiresource
 	 */
-	public function GetMapiMessageForId($folderId, $objectUri, $mapifolder = null, $extension = null)
-	{
+	public function GetMapiMessageForId($folderId, $objectUri, $mapifolder = null, $extension = null) {
 		$this->logger->trace("Searching for '%s' in '%s' (%s) (%s)", $objectUri, $folderId, $mapifolder, $extension);
 
 		if (!$mapifolder) {
@@ -530,8 +513,7 @@ class GrommunioDavBackend
 	 *
 	 * @return string
 	 */
-	public function GetObjectIdFromObjectUri($objectUri, $extension)
-	{
+	public function GetObjectIdFromObjectUri($objectUri, $extension) {
 		if (!$extension) {
 			return $objectUri;
 		}
@@ -550,8 +532,7 @@ class GrommunioDavBackend
 	 *
 	 * @return bool installed version is superior to the checked string
 	 */
-	protected function checkMapiExtVersion($version = "")
-	{
+	protected function checkMapiExtVersion($version = "") {
 		if (!extension_loaded("mapi")) {
 			return false;
 		}
@@ -575,8 +556,7 @@ class GrommunioDavBackend
 	 *
 	 * @return mixed
 	 */
-	protected function GetCustomProperties($id)
-	{
+	protected function GetCustomProperties($id) {
 		if (!isset($this->customprops[$id])) {
 			$this->logger->trace("Fetching properties id:%s", $id);
 			$store = $this->GetStoreById($id);
@@ -599,8 +579,7 @@ class GrommunioDavBackend
 	 * @return array
 	 */
 	// TODO getting named properties
-	public function GetCalendarRestriction($store, $start, $end)
-	{
+	public function GetCalendarRestriction($store, $start, $end) {
 		$props = MapiProps::GetAppointmentProperties();
 		$props = getPropIdsFromStrings($store, $props);
 
@@ -692,8 +671,7 @@ class GrommunioDavBackend
 	 *
 	 * @return array
 	 */
-	public function Sync($folderId, $syncToken, $fileExtension, $limit = null)
-	{
+	public function Sync($folderId, $syncToken, $fileExtension, $limit = null) {
 		$arr = explode(':', $folderId);
 		$phpwrapper = new PHPWrapper($this->GetStoreById($folderId), $this->logger, $this->GetCustomProperties($folderId), $fileExtension, $this->syncstate, $arr[1]);
 		$mapiimporter = mapi_wrap_importcontentschanges($phpwrapper);

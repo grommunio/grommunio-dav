@@ -7,8 +7,7 @@
 
 namespace grommunio\DAV;
 
-class MonologWrapper extends \Monolog\Logger
-{
+class MonologWrapper extends \Monolog\Logger {
 	/**
 	 * Trace information.
 	 */

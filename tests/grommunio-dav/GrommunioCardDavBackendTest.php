@@ -15,8 +15,7 @@ namespace grommunio\DAV;
  *
  * @coversNothing
  */
-class GrommunioCardDavBackendTest extends \PHPUnit_Framework_TestCase
-{
+class GrommunioCardDavBackendTest extends \PHPUnit_Framework_TestCase {
 	private $gDavBackendMock;
 	private $kCardDavBackend;
 
@@ -25,8 +24,7 @@ class GrommunioCardDavBackendTest extends \PHPUnit_Framework_TestCase
 	 *
 	 * @see PHPUnit_Framework_TestCase::setUp()
 	 */
-	protected function setUp()
-	{
+	protected function setUp() {
 		$gloggerMock = $this->getMockBuilder(GLogger::class)->disableOriginalConstructor()->getMock();
 		$this->gDavBackendMock = $this->getMockBuilder(GrommunioDavBackend::class)->disableOriginalConstructor()->getMock();
 		$this->kCardDavBackend = new GrommunioCardDavBackend($this->gDavBackendMock, $gloggerMock);
@@ -37,8 +35,7 @@ class GrommunioCardDavBackendTest extends \PHPUnit_Framework_TestCase
 	 *
 	 * @see PHPUnit_Framework_TestCase::tearDown()
 	 */
-	protected function tearDown()
-	{
+	protected function tearDown() {
 		$this->kCardDavBackend = null;
 		$this->gDavBackendMock = null;
 	}
@@ -46,8 +43,7 @@ class GrommunioCardDavBackendTest extends \PHPUnit_Framework_TestCase
 	/**
 	 * Tests if the constructor is created without errors.
 	 */
-	public function testConstruct()
-	{
+	public function testConstruct() {
 		$this->assertTrue(is_object($this->kCardDavBackend));
 	}
 }
