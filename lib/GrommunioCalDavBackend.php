@@ -533,45 +533,9 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		$session = $this->gDavBackend->GetSession();
 		$ab = $this->gDavBackend->GetAddressBook();
 
-		// Evolution sends daylight/standard information in the ical data
-		// and some values are not supported by Outlook/Exchange.
-		// Strip that data and leave only the last occurrences of
-		// daylight/standard information.
-		// @see GRAM-52
-
-		$xLicLocation = stripos($ics, 'X-LIC-LOCATION:');
-		if (($xLicLocation !== false) &&
-				(
-					substr_count($ics, 'BEGIN:DAYLIGHT', $xLicLocation) > 0 ||
-					substr_count($ics, 'BEGIN:STANDARD', $xLicLocation) > 0
-				)) {
-			$firstDaytime = stripos($ics, 'BEGIN:DAYLIGHT', $xLicLocation);
-			$firstStandard = stripos($ics, 'BEGIN:STANDARD', $xLicLocation);
-
-			$lastDaytime = strripos($ics, 'BEGIN:DAYLIGHT', $xLicLocation);
-			$lastStandard = strripos($ics, 'BEGIN:STANDARD', $xLicLocation);
-
-			// the first part of ics until the first piece of standard/daytime information
-			$cutStart = $firstDaytime < $firstStandard ? $firstDaytime : $firstStandard;
-
-			if ($lastDaytime > $lastStandard) {
-				// the part of the ics with the last piece of standard/daytime information
-				$cutEnd = $lastDaytime;
-
-				// the positions of the last piece of standard information
-				$cut1 = $lastStandard;
-				$cut2 = strripos($ics, 'END:STANDARD', $lastStandard) + 14; // strlen('END:STANDARD')
-			}
-			else {
-				// the part of the ics with the last piece of standard/daytime information
-				$cutEnd = $lastStandard;
-
-				// the positions of the last piece of daylight information
-				$cut1 = $lastDaytime;
-				$cut2 = strripos($ics, 'END:DAYLIGHT', $lastDaytime) + 14; // strlen('END:DAYLIGHT')
-			}
-
-			$ics = substr($ics, 0, $cutStart) . substr($ics, $cut1, $cut2 - $cut1) . substr($ics, $cutEnd);
+		$trimmed = static::TrimTimezoneObservances($ics);
+		if ($trimmed !== $ics) {
+			$ics = $trimmed;
 			$this->logger->trace("newics: %s", $ics);
 		}
 
@@ -628,6 +592,65 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
 
 		return $props[PR_LAST_MODIFICATION_TIME];
+	}
+
+	/**
+	 * Reduces the time zones sent by Evolution to their current rules.
+	 *
+	 * Evolution (libical, recognizable by X-LIC-LOCATION) sends all
+	 * historic STANDARD and DAYLIGHT observances of a time zone, some of
+	 * which are not supported by Outlook/Exchange. Only the latest
+	 * observance of each kind is kept in every such VTIMEZONE.
+	 *
+	 * @see GRAM-52
+	 *
+	 * @param string $ics
+	 *
+	 * @return string the data, unchanged if nothing was removed or it cannot be parsed
+	 */
+	public static function TrimTimezoneObservances($ics) {
+		if (stripos($ics, 'X-LIC-LOCATION') === false) {
+			return $ics;
+		}
+
+		try {
+			// like libical, accept e.g. "_" in property names
+			$vcalendar = Reader::read($ics, Reader::OPTION_FORGIVING);
+		}
+		catch (\Throwable $throwable) {
+			return $ics;
+		}
+
+		$changed = false;
+		foreach ($vcalendar->select('VTIMEZONE') as $vtimezone) {
+			if (!isset($vtimezone->{'X-LIC-LOCATION'})) {
+				continue;
+			}
+			foreach (['STANDARD', 'DAYLIGHT'] as $kind) {
+				$observances = $vtimezone->select($kind);
+				if (count($observances) < 2) {
+					continue;
+				}
+				// keep the observance starting last, the later one on equal starts
+				$keep = null;
+				$keepStart = null;
+				foreach ($observances as $observance) {
+					$start = isset($observance->DTSTART) ? (string) $observance->DTSTART->getValue() : '';
+					if ($keep === null || strcmp($start, $keepStart) >= 0) {
+						$keep = $observance;
+						$keepStart = $start;
+					}
+				}
+				foreach ($observances as $observance) {
+					if ($observance !== $keep) {
+						$vtimezone->remove($observance);
+						$changed = true;
+					}
+				}
+			}
+		}
+
+		return $changed ? $vcalendar->serialize() : $ics;
 	}
 
 	/**
