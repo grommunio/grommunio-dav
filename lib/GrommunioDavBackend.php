@@ -489,10 +489,19 @@ class GrommunioDavBackend {
 				$entryid = $rows[0][PR_ENTRYID];
 			}
 		}
+		if (!$entryid) {
+			$this->logger->debug("Try to get entryid from appttsref");
+			$arr = explode(':', $folderId);
+			$sk = $this->syncstate->getSourcekey($arr[1], $id);
+			if ($sk != null) {
+				$this->logger->debug("Found sourcekey from appttsref %s", $sk);
+				$entryid = mapi_msgstore_entryidfromsourcekey($this->GetStoreById($arr[0]), hex2bin($arr[1]), hex2bin($sk));
+			}
+		}
 		if ($entryid) {
 			$mapimessage = mapi_msgstore_openentry($this->GetStoreById($folderId), $entryid);
 			if (!$mapimessage) {
-				$this->logger->warn("Error, unable to open entry id: 0x%X", $entryid, mapi_last_hresult());
+				$this->logger->warn("Error, unable to open entry id: %s 0x%X", bin2hex($entryid), mapi_last_hresult());
 
 				return null;
 			}
