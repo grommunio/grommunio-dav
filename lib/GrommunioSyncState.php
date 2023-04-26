@@ -24,11 +24,12 @@ class GrommunioSyncState {
 		$this->db = new \PDO($dbstring);
 
 		$query = "CREATE TABLE IF NOT EXISTS gdav_sync_state (
-            id VARCHAR(255), folderid VARCHAR(255), value TEXT,
-            PRIMARY KEY (id, folderid));
-            CREATE TABLE IF NOT EXISTS gdav_sync_appttsref (
-            sourcekey VARCHAR(255), folderid VARCHAR(255), appttsref VARCHAR(255),
-            PRIMARY KEY (sourcekey, folderid));";
+		          id VARCHAR(255), folderid VARCHAR(255), value TEXT,
+		          PRIMARY KEY (id, folderid));
+		          CREATE TABLE IF NOT EXISTS gdav_sync_appttsref (
+		          sourcekey VARCHAR(255), folderid VARCHAR(255), appttsref VARCHAR(255),
+		          PRIMARY KEY (sourcekey, folderid));
+		          CREATE INDEX IF NOT EXISTS idx_appttsref ON gdav_sync_appttsref(appttsref);";
 
 		$this->db->exec($query);
 	}
@@ -110,5 +111,28 @@ class GrommunioSyncState {
 		}
 
 		return $result['appttsref'];
+	}
+
+	/**
+	 * Get the sourcekey from the saved APPTTSREF (custom URL) and a folderId.
+	 * This is the last resort when searching for an item in the store fails.
+	 *
+	 * @param string $folderid
+	 * @param string $appttsref
+	 *
+	 * @return string
+	 */
+	public function getSourcekey($folderid, $appttsref) {
+		$query = "SELECT sourcekey FROM gdav_sync_appttsref WHERE folderid = :folderid AND appttsref = :appttsref";
+		$statement = $this->db->prepare($query);
+		$statement->bindParam(":folderid", $folderid);
+		$statement->bindParam(":appttsref", $appttsref);
+		$statement->execute();
+		$result = $statement->fetch();
+		if (!$result) {
+			return null;
+		}
+
+		return $result['sourcekey'];
 	}
 }
