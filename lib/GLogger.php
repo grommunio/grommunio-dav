@@ -12,6 +12,7 @@ namespace grommunio\DAV;
 use grommunio\DAV\MonologWrapper as Logger;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\ErrorLogHandler;
+use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Processor\ProcessIdProcessor;
 
@@ -128,8 +129,9 @@ class GLogger {
 	public function resetConfiguration() {
 		if (static::$parentLogger) {
 			static::$parentLogger->reset();
-			static::$parentLogger = null;
+			static::$parentLogger->pushHandler(new NullHandler());
 		}
+		$this->logger = self::$parentLogger;
 	}
 
 	public function getGPSR3Logger() {
@@ -225,9 +227,9 @@ class GLogger {
 	/**
 	 * Runs the arguments through sprintf() and sends it to the logger.
 	 *
-	 * @param \LoggerLevel $level
-	 * @param array        $args
-	 * @param string       $suffix an optional suffix that is appended to the message
+	 * @param LoggerLevel $level
+	 * @param array       $args
+	 * @param string      $suffix an optional suffix that is appended to the message
 	 */
 	protected function writeLog($level, $args, $suffix = '') {
 		$outArgs = [];
@@ -341,13 +343,13 @@ class GLogger {
 
 			case E_NOTICE:
 			case E_WARNING:
-				$logger = \Logger::getLogger('error');
+				$logger = Logger::getLogger('error');
 				$logger->warn("{$errfile}:{$errline} {$errstr} ({$errno})");
 				break;
 
 			default:
 				$bt = debug_backtrace();
-				$logger = \Logger::getLogger('error');
+				$logger = Logger::getLogger('error');
 				$logger->error("trace error: {$errfile}:{$errline} {$errstr} ({$errno}) - backtrace: " . (count($bt) - 1) . " steps");
 				for ($i = 1, $bt_length = count($bt); $i < $bt_length; ++$i) {
 					$file = $line = "unknown";
@@ -364,7 +366,7 @@ class GLogger {
 	}
 
 	/**
-	 * Wrapper of the \Logger class.
+	 * Wrapper of the Logger class.
 	 */
 
 	/**
