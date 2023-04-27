@@ -227,9 +227,9 @@ class GLogger {
 	/**
 	 * Runs the arguments through sprintf() and sends it to the logger.
 	 *
-	 * @param LoggerLevel $level
-	 * @param array       $args
-	 * @param string      $suffix an optional suffix that is appended to the message
+	 * @param int    $level
+	 * @param array  $args
+	 * @param string $suffix an optional suffix that is appended to the message
 	 */
 	protected function writeLog($level, $args, $suffix = '') {
 		$outArgs = [];
@@ -288,7 +288,7 @@ class GLogger {
 		$t = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $wlevel + 1);
 		if (isset($t[$wlevel]['function'])) {
 			if ($fileline) {
-				return $t[$wlevel]['file'] . ":" . $t[$wlevel]['line'];
+				return ($t[$wlevel]['file'] ?? "unknown file") . ":" . ($t[$wlevel]['line'] ?? "unknown line");
 			}
 
 			return $this->GetClassnameOnly($t[$wlevel]['class']) . '->' . $t[$wlevel]['function'] . '(): ';
@@ -332,6 +332,8 @@ class GLogger {
 			$errno &= LOG_ERROR_MASK;
 		}
 
+		$logger = self::$parentLogger ?? new GLogger('error');
+
 		switch ($errno) {
 			case 0:
 				// logging disabled by LOG_ERROR_MASK
@@ -343,23 +345,17 @@ class GLogger {
 
 			case E_NOTICE:
 			case E_WARNING:
-				$logger = Logger::getLogger('error');
 				$logger->warn("{$errfile}:{$errline} {$errstr} ({$errno})");
 				break;
 
 			default:
 				$bt = debug_backtrace();
-				$logger = Logger::getLogger('error');
 				$logger->error("trace error: {$errfile}:{$errline} {$errstr} ({$errno}) - backtrace: " . (count($bt) - 1) . " steps");
 				for ($i = 1, $bt_length = count($bt); $i < $bt_length; ++$i) {
-					$file = $line = "unknown";
-					if (isset($bt[$i]['file'])) {
-						$file = $bt[$i]['file'];
-					}
-					if (isset($bt[$i]['line'])) {
-						$line = $bt[$i]['line'];
-					}
-					$logger->error("trace: {$i}:" . $file . ":" . $line . " - " . ((isset($bt[$i]['class'])) ? $bt[$i]['class'] . $bt[$i]['type'] : "") . $bt[$i]['function'] . "()");
+					$file = $bt[$i]['file'] ?? "unknown file";
+					$line = $bt[$i]['line'] ?? "unknown line";
+
+					$logger->error("trace {$i}: {$file}:{$line} - " . (isset($bt[$i]['class']) ? $bt[$i]['class'] . $bt[$i]['type'] : "") . $bt[$i]['function'] . "()");
 				}
 				break;
 		}
