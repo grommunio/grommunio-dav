@@ -80,7 +80,7 @@ if (DEVELOPER_MODE) {
 	$server->addPlugin(new \Sabre\DAV\Browser\Plugin(false));
 }
 
-$server->exec();
+$server->start();
 
 // Log outgoing data
 $logger->LogOutgoing($server->httpResponse);
