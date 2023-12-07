@@ -105,7 +105,6 @@ class GrommunioDavBackend {
 	 * Returns a list of folders for a MAPI class.
 	 *
 	 * @param string $principalUri
-	 * @param string $class
 	 * @param mixed  $classes
 	 *
 	 * @return array
@@ -126,7 +125,7 @@ class GrommunioDavBackend {
 		mapi_table_restrict($hierarchy, [RES_OR, $restrictions]);
 
 		// TODO how to handle hierarchies?
-		$rows = mapi_table_queryallrows($hierarchy, [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX]);
+		$rows = mapi_table_queryallrows($hierarchy, [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX, PR_CONTAINER_CLASS, PR_COMMENT]);
 
 		$rootprops = mapi_getprops($rootfolder, [PR_IPM_CONTACT_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID]);
 		foreach ($rows as $row) {
@@ -140,8 +139,17 @@ class GrommunioDavBackend {
 				'principaluri' => $principalUri,
 				'{http://sabredav.org/ns}sync-token' => '0000000000',
 				'{DAV:}displayname' => $row[PR_DISPLAY_NAME],
+				'{urn:ietf:params:xml:ns:caldav}calendar-description' => $row[PR_COMMENT],
 				'{http://calendarserver.org/ns/}getctag' => isset($row[PR_LOCAL_COMMIT_TIME_MAX]) ? strval($row[PR_LOCAL_COMMIT_TIME_MAX]) : '0000000000',
 			];
+
+			// set the supported component (task or calendar)
+			if ($row[PR_CONTAINER_CLASS] == "IPF.Task") {
+				$folder['{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set'] = new \Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet(['VTODO']);
+			}
+			if ($row[PR_CONTAINER_CLASS] == "IPF.Appointment") {
+				$folder['{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set'] = new \Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet(['VEVENT']);
+			}
 
 			// ensure default contacts folder is put first, some clients
 			// i.e. Apple Addressbook only supports one contact folder,
