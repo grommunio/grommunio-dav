@@ -32,7 +32,6 @@ class GrommunioSchedulePlugin extends \Sabre\CalDAV\Schedule\Plugin {
 		$this->logger->trace("email: %s - start: %d - end: %d", $email, $start->getTimestamp(), $end->getTimestamp());
 
 		$addrbook = $this->gDavBackend->GetAddressBook();
-		$fbsupport = mapi_freebusysupport_open($this->gDavBackend->GetSession());
 		$email = preg_replace('!^mailto:!i', '', $email);
 		$search = [[PR_DISPLAY_NAME => $email]];
 		$userarr = mapi_ab_resolvename($addrbook, $search, EMS_AB_ADDRESS_LOOKUP);
@@ -43,17 +42,7 @@ class GrommunioSchedulePlugin extends \Sabre\CalDAV\Schedule\Plugin {
 			];
 		}
 
-		$fbDataArray = mapi_freebusysupport_loaddata($fbsupport, [$userarr[0][PR_ENTRYID]]);
-		if (!$fbDataArray || !$fbDataArray[0]) {
-			return [
-				'calendar-data' => null,
-				'request-status' => '2.0;Success',
-				'href' => 'mailto:' . $email,
-			];
-		}
-
-		$enumblock = mapi_freebusydata_enumblocks($fbDataArray[0], $start->getTimestamp(), $end->getTimestamp());
-		$result = mapi_freebusyenumblock_ical($addrbook, $enumblock, 100, $start->getTimestamp(), $end->getTimestamp(), $email, $email, "");
+		$result = mapi_getuserfreebusyical($this->gDavBackend->GetSession(), $userarr[0][PR_ENTRYID], $start->getTimestamp(), $end->getTimestamp());
 		if ($result) {
 			$vcalendar = \Sabre\VObject\Reader::read($result, \Sabre\VObject\Reader::OPTION_FORGIVING);
 

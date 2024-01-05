@@ -59,8 +59,8 @@ $aclPlugin = new DAVACL();
 $aclPlugin->allowUnauthenticatedAccess = false;
 $server->addPlugin($aclPlugin);
 
-// $schedulePlugin = new GrommunioSchedulePlugin($gdavBackend, new GLogger('schedule'));
-// $server->addPlugin($schedulePlugin);
+$schedulePlugin = new GrommunioSchedulePlugin($gdavBackend, new GLogger('schedule'));
+$server->addPlugin($schedulePlugin);
 
 $imipPlugin = new GrommunioIMipPlugin($gdavBackend, new GLogger('imip'));
 $server->addPlugin($imipPlugin);
