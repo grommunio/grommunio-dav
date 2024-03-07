@@ -117,7 +117,9 @@ class GrommunioDavBackend {
 
 		// TODO limit the output to subfolders of the principalUri?
 
-		$rootfolder = mapi_msgstore_openentry($this->GetStore($principalUri));
+		$store = $this->GetStore($principalUri);
+		$storeprops = mapi_getprops($store, [PR_IPM_WASTEBASKET_ENTRYID]);
+		$rootfolder = mapi_msgstore_openentry($store);
 		$hierarchy = mapi_folder_gethierarchytable($rootfolder, CONVENIENT_DEPTH | MAPI_DEFERRED_ERRORS);
 		// TODO also filter hidden folders
 		$restrictions = [];
@@ -127,11 +129,15 @@ class GrommunioDavBackend {
 		mapi_table_restrict($hierarchy, [RES_OR, $restrictions]);
 
 		// TODO how to handle hierarchies?
-		$rows = mapi_table_queryallrows($hierarchy, [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX, PR_CONTAINER_CLASS, PR_COMMENT]);
+		$rows = mapi_table_queryallrows($hierarchy, [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX, PR_CONTAINER_CLASS, PR_COMMENT, PR_PARENT_ENTRYID]);
 
 		$rootprops = mapi_getprops($rootfolder, [PR_IPM_CONTACT_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID]);
 		foreach ($rows as $row) {
 			if ($row[PR_FOLDER_TYPE] == FOLDER_SEARCH) {
+				continue;
+			}
+
+			if (isset($row[PR_PARENT_ENTRYID], $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) && $row[PR_PARENT_ENTRYID] == $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) {
 				continue;
 			}
 
