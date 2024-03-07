@@ -9,6 +9,8 @@
 
 namespace grommunio\DAV;
 
+use Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet;
+
 class GrommunioDavBackend {
 	private $logger;
 	protected $session;
@@ -145,10 +147,10 @@ class GrommunioDavBackend {
 
 			// set the supported component (task or calendar)
 			if ($row[PR_CONTAINER_CLASS] == "IPF.Task") {
-				$folder['{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set'] = new \Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet(['VTODO']);
+				$folder['{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set'] = new SupportedCalendarComponentSet(['VTODO']);
 			}
 			if ($row[PR_CONTAINER_CLASS] == "IPF.Appointment") {
-				$folder['{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set'] = new \Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet(['VEVENT']);
+				$folder['{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set'] = new SupportedCalendarComponentSet(['VEVENT']);
 			}
 
 			// ensure default contacts folder is put first, some clients
@@ -172,27 +174,22 @@ class GrommunioDavBackend {
 	}
 
 	/**
-	 * Returns a list of objects for a folder given by the id.
+	 * Returns a MAPI restriction for a defined set of filters.
 	 *
-	 * @param string $id
-	 * @param string $fileExtension
 	 * @param array  $filters
+	 * @param string $storeId (optional) mapi compatible storeid - required when using start+end filter
 	 *
 	 * @return array
 	 */
-	public function GetObjects($id, $fileExtension, $filters = []) {
-		$folder = $this->GetMapiFolder($id);
-		$properties = $this->GetCustomProperties($id);
-		$table = mapi_folder_getcontentstable($folder, MAPI_DEFERRED_ERRORS);
-
+	private function getRestrictionForFilters($filters, $storeId = null) {
 		$restrictions = [];
-		if (isset($filters['start'], $filters['end'])) {
-			$this->logger->trace("got start: %d and end: %d", $filters['start'], $filters['end']);
-			$subrestriction = $this->GetCalendarRestriction($this->GetStoreById($id), $filters['start'], $filters['end']);
+		if (isset($filters['start'], $filters['end'], $storeId)) {
+			$this->logger->trace("getRestrictionForFilters - got start: %d and end: %d", $filters['start'], $filters['end']);
+			$subrestriction = $this->GetCalendarRestriction($storeId, $filters['start'], $filters['end']);
 			$restrictions[] = $subrestriction;
 		}
 		if (isset($filters['types'])) {
-			$this->logger->trace("got types: %s", $filters['types']);
+			$this->logger->trace("getRestrictionForFilters - got types: %s", $filters['types']);
 			$arr = [];
 			foreach ($filters['types'] as $filter) {
 				$arr[] = [RES_PROPERTY,
@@ -206,7 +203,29 @@ class GrommunioDavBackend {
 		}
 		if (!empty($restrictions)) {
 			$restriction = [RES_AND, $restrictions];
-			$this->logger->trace("Got restriction: %s", $restriction);
+			$this->logger->trace("getRestrictionForFilters - got restriction: %s", $restriction);
+
+			return $restriction;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns a list of objects for a folder given by the id.
+	 *
+	 * @param string $id
+	 * @param string $fileExtension
+	 * @param array  $filters
+	 *
+	 * @return array
+	 */
+	public function GetObjects($id, $fileExtension, $filters = []) {
+		$folder = $this->GetMapiFolder($id);
+		$properties = $this->GetCustomProperties($id);
+		$table = mapi_folder_getcontentstable($folder, MAPI_DEFERRED_ERRORS);
+		$restriction = $this->getRestrictionForFilters($filters, $this->GetStoreById($id));
+		if ($restriction) {
 			mapi_table_restrict($table, $restriction);
 		}
 
@@ -363,7 +382,7 @@ class GrommunioDavBackend {
 	 *
 	 * @param mixed $id
 	 *
-	 * @return false|\grommunio\DAV\MAPIStore on error
+	 * @return false|MAPIStore on error
 	 */
 	public function GetStoreById($id) {
 		$arr = explode(':', $id);
@@ -685,10 +704,11 @@ class GrommunioDavBackend {
 	 * @param string $syncToken
 	 * @param string $fileExtension
 	 * @param int    $limit
+	 * @param array  $filters
 	 *
 	 * @return array
 	 */
-	public function Sync($folderId, $syncToken, $fileExtension, $limit = null) {
+	public function Sync($folderId, $syncToken, $fileExtension, $limit = null, $filters = []) {
 		$arr = explode(':', $folderId);
 		$phpwrapper = new PHPWrapper($this->GetStoreById($folderId), $this->logger, $this->GetCustomProperties($folderId), $fileExtension, $this->syncstate, $arr[1]);
 		$mapiimporter = mapi_wrap_importcontentschanges($phpwrapper);
@@ -715,12 +735,15 @@ class GrommunioDavBackend {
 			mapi_stream_write($stream, hex2bin($value));
 		}
 
+		// force restriction o "types" only to export only appointments or contacts
+		$restriction = $this->getRestrictionForFilters($filters);
+
 		// The last parameter in mapi_exportchanges_config is buffer size for mapi_exportchanges_synchronize - how many
 		// changes will be processed in its call. Setting it to MAX_SYNC_ITEMS won't export more items than is set in
 		// the config. If there are more changes than MAX_SYNC_ITEMS the client will eventually catch up and sync
 		// the rest on the subsequent sync request(s).
 		$bufferSize = ($limit !== null && $limit > 0) ? $limit : MAX_SYNC_ITEMS;
-		mapi_exportchanges_config($exporter, $stream, SYNC_NORMAL | SYNC_UNICODE, $mapiimporter, null, false, false, $bufferSize);
+		mapi_exportchanges_config($exporter, $stream, SYNC_NORMAL | SYNC_UNICODE, $mapiimporter, $restriction, false, false, $bufferSize);
 		$changesCount = mapi_exportchanges_getchangecount($exporter);
 		$this->logger->debug("Exporter found %d changes, buffer size for mapi_exportchanges_synchronize %d", $changesCount, $bufferSize);
 		while (is_array(mapi_exportchanges_synchronize($exporter))) {

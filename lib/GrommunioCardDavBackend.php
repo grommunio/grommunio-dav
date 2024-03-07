@@ -9,11 +9,16 @@
 
 namespace grommunio\DAV;
 
-class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend implements \Sabre\CardDAV\Backend\SyncSupport {
+use Sabre\CardDAV\Backend\AbstractBackend;
+use Sabre\CardDAV\Backend\SyncSupport;
+use Sabre\DAV\PropPatch;
+
+class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	private $logger;
 	protected $gDavBackend;
 
 	public const FILE_EXTENSION = '.vcf';
+	public const MESSAGE_CLASSES = ['IPM.Contact'];
 	public const CONTAINER_CLASS = 'IPF.Contact';
 	public const CONTAINER_CLASSES = ['IPF.Contact'];
 
@@ -63,7 +68,7 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 *
 	 * @param string $addressBookId
 	 */
-	public function updateAddressBook($addressBookId, \Sabre\DAV\PropPatch $propPatch) {
+	public function updateAddressBook($addressBookId, PropPatch $propPatch) {
 		// TODO is our logger able to log this object? It probably needs to be adapted.
 		$this->logger->trace("addressBookId: %s - proppatch: %s", $addressBookId, $propPatch);
 	}
@@ -81,6 +86,7 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 */
 	public function createAddressBook($principalUri, $url, array $properties) {
 		$this->logger->trace("principalUri: %s - url: %s - properties: %s", $principalUri, $url, $properties);
+
 		// TODO Add displayname
 		return $this->gDavBackend->CreateFolder($principalUri, $url, static::CONTAINER_CLASS, "");
 	}
@@ -117,7 +123,7 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	 * @return array
 	 */
 	public function getCards($addressbookId) {
-		$result = $this->gDavBackend->GetObjects($addressbookId, static::FILE_EXTENSION);
+		$result = $this->gDavBackend->GetObjects($addressbookId, static::FILE_EXTENSION, ['types' => static::MESSAGE_CLASSES]);
 		$this->logger->trace("addressbookId: %s found %d objects", $addressbookId, count($result));
 
 		return $result;
@@ -357,6 +363,6 @@ class GrommunioCardDavBackend extends \Sabre\CardDAV\Backend\AbstractBackend imp
 	public function getChangesForAddressBook($addressBookId, $syncToken, $syncLevel, $limit = null) {
 		$this->logger->trace("addressBookId: %s - syncToken: %s - syncLevel: %d - limit: %d", $addressBookId, $syncToken, $syncLevel, $limit);
 
-		return $this->gDavBackend->Sync($addressBookId, $syncToken, static::FILE_EXTENSION, $limit);
+		return $this->gDavBackend->Sync($addressBookId, $syncToken, static::FILE_EXTENSION, $limit, ['types' => static::MESSAGE_CLASSES]);
 	}
 }
