@@ -141,20 +141,15 @@ class PHPWrapper {
 	}
 
 	/** Implement MAPI interface */
-	public function Config($stream, $flags = 0) {
-	}
+	public function Config($stream, $flags = 0) {}
 
-	public function GetLastError($hresult, $ulflags, &$lpmapierror) {
-	}
+	public function GetLastError($hresult, $ulflags, &$lpmapierror) {}
 
-	public function UpdateState($stream) {
-	}
+	public function UpdateState($stream) {}
 
-	public function ImportMessageMove($sourcekeysrcfolder, $sourcekeysrcmessage, $message, $sourcekeydestmessage, $changenumdestmessage) {
-	}
+	public function ImportMessageMove($sourcekeysrcfolder, $sourcekeysrcmessage, $message, $sourcekeydestmessage, $changenumdestmessage) {}
 
-	public function ImportPerUserReadStateChange($readstates) {
-	}
+	public function ImportPerUserReadStateChange($readstates) {}
 
 	public function ImportFolderChange($props) {
 		return 0;

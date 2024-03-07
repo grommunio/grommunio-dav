@@ -9,7 +9,11 @@
 
 namespace grommunio\DAV;
 
-class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend implements \Sabre\CalDAV\Backend\SchedulingSupport, \Sabre\CalDAV\Backend\SyncSupport {
+use Sabre\CalDAV\Backend\AbstractBackend;
+use Sabre\CalDAV\Backend\SchedulingSupport;
+use Sabre\CalDAV\Backend\SyncSupport;
+
+class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSupport, SyncSupport {
 	/*
 	 * TODO IMPLEMENT
 	 *
@@ -22,6 +26,8 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	protected $gDavBackend;
 
 	public const FILE_EXTENSION = '.ics';
+	// TODO: implement Task support - Issue: #10
+	public const MESSAGE_CLASSES = ['IPM.Appointment' /* , 'IPM.Note' */];
 	public const CONTAINER_CLASS = 'IPF.Appointment';
 	public const CONTAINER_CLASSES = ['IPF.Appointment', 'IPF.Task'];
 
@@ -100,6 +106,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 */
 	public function createCalendar($principalUri, $calendarUri, array $properties) {
 		$this->logger->trace("principalUri: %s - calendarUri: %s - properties: %s", $principalUri, $calendarUri, $properties);
+
 		// TODO Add displayname
 		return $this->gDavBackend->CreateFolder($principalUri, $calendarUri, static::CONTAINER_CLASS, "");
 	}
@@ -148,7 +155,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	 * @return array
 	 */
 	public function getCalendarObjects($calendarId) {
-		$result = $this->gDavBackend->GetObjects($calendarId, static::FILE_EXTENSION);
+		$result = $this->gDavBackend->GetObjects($calendarId, static::FILE_EXTENSION, ['types' => static::MESSAGE_CLASSES]);
 		$this->logger->trace("calendarId: %s found %d objects", $calendarId, count($result));
 
 		return $result;
@@ -333,6 +340,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 		if (!$retval) {
 			return null;
 		}
+
 		// $this->UpdateFB($calendarId, $folder);
 		return '"' . $retval . '"';
 	}
@@ -365,6 +373,7 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 		if (!$retval) {
 			return null;
 		}
+
 		// $this->UpdateFB($calendarId, $folder);
 		return '"' . $retval . '"';
 	}
@@ -596,6 +605,6 @@ class GrommunioCalDavBackend extends \Sabre\CalDAV\Backend\AbstractBackend imple
 	public function getChangesForCalendar($calendarId, $syncToken, $syncLevel, $limit = null) {
 		$this->logger->trace("calendarId: %s - syncToken: %s - syncLevel: %d - limit: %d", $calendarId, $syncToken, $syncLevel, $limit);
 
-		return $this->gDavBackend->Sync($calendarId, $syncToken, static::FILE_EXTENSION, $limit);
+		return $this->gDavBackend->Sync($calendarId, $syncToken, static::FILE_EXTENSION, $limit, ['types' => static::MESSAGE_CLASSES]);
 	}
 }
