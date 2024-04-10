@@ -1,13 +1,16 @@
 <?php
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
+ * SPDX-FileCopyrightText: Copyright 2023-2024 grommunio GmbH
  *
  * A wrapper for Monolog Logger class, adds a new log level: TRACE
  */
 
 namespace grommunio\DAV;
 
-class MonologWrapper extends \Monolog\Logger {
+use Monolog\Logger;
+
+class MonologWrapper extends Logger {
 	/**
 	 * Trace information.
 	 */

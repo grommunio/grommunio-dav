@@ -9,7 +9,9 @@
 
 namespace grommunio\DAV;
 
-class DAVACL extends \Sabre\DAVACL\Plugin {
+use Sabre\DAVACL\Plugin;
+
+class DAVACL extends Plugin {
 	/**
 	 * Returns the full ACL list.
 	 *
