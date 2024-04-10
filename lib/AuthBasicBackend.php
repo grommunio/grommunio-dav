@@ -2,14 +2,16 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
  *
  * grommunio basic authentication backend class.
  */
 
 namespace grommunio\DAV;
 
-class AuthBasicBackend extends \Sabre\DAV\Auth\Backend\AbstractBasic {
+use Sabre\DAV\Auth\Backend\AbstractBasic;
+
+class AuthBasicBackend extends AbstractBasic {
 	protected $gDavBackend;
 
 	/**

@@ -2,12 +2,20 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
  *
  * This is the entry point through which all requests are processed.
  */
 
 namespace grommunio\DAV;
+
+use Sabre\CalDAV\CalendarRoot;
+use Sabre\CalDAV\ICSExportPlugin;
+use Sabre\CardDAV\AddressBookRoot;
+use Sabre\CardDAV\Plugin;
+use Sabre\DAV\Server;
+use Sabre\DAV\Version;
+use Sabre\DAVACL\PrincipalCollection;
 
 // require composer auto-loader
 require __DIR__ . '/vendor/autoload.php';
@@ -25,7 +33,7 @@ if (isset($_REQUEST['sabreAction']) && $_REQUEST['sabreAction'] == 'asset') {
 $logger->debug('------------------ Start');
 $logger->debug('%s %s', $_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);
 $logger->debug('grommunio-dav version %s', GDAV_VERSION);
-$logger->debug('SabreDAV version %s', \Sabre\DAV\Version::VERSION);
+$logger->debug('SabreDAV version %s', Version::VERSION);
 
 $gdavBackend = new GrommunioDavBackend(new GLogger('dav'));
 $authBackend = new AuthBasicBackend($gdavBackend);
@@ -36,13 +44,13 @@ $gCaldavBackend = new GrommunioCalDavBackend($gdavBackend, new GLogger('cal'));
 
 // Setting up the directory tree
 $nodes = [
-	new \Sabre\DAVACL\PrincipalCollection($principalBackend),
-	new \Sabre\CardDAV\AddressBookRoot($principalBackend, $gCarddavBackend),
-	new \Sabre\CalDAV\CalendarRoot($principalBackend, $gCaldavBackend),
+	new PrincipalCollection($principalBackend),
+	new AddressBookRoot($principalBackend, $gCarddavBackend),
+	new CalendarRoot($principalBackend, $gCaldavBackend),
 ];
 
 // initialize the server
-$server = new \Sabre\DAV\Server($nodes);
+$server = new Server($nodes);
 $server->setBaseUri(DAV_ROOT_URI);
 $server->setLogger($logger->getGPSR3Logger());
 
@@ -65,7 +73,7 @@ $server->addPlugin($schedulePlugin);
 $imipPlugin = new GrommunioIMipPlugin($gdavBackend, new GLogger('imip'));
 $server->addPlugin($imipPlugin);
 
-$server->addPlugin(new \Sabre\CalDAV\ICSExportPlugin());
+$server->addPlugin(new ICSExportPlugin());
 $server->addPlugin(new \Sabre\CardDAV\Plugin());
 
 // TODO: do we need $caldavPlugin for anything?

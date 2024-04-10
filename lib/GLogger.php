@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
  *
  * A wrapper for Monolog Logger.
  */
@@ -15,6 +15,8 @@ use Monolog\Handler\ErrorLogHandler;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Processor\ProcessIdProcessor;
+use Sabre\HTTP\RequestInterface;
+use Sabre\HTTP\ResponseInterface;
 
 /**
  * GLogger: wraps the monolog Logger.
@@ -141,8 +143,7 @@ class GLogger {
 	/**
 	 * Returns a GLogger by name. If it does not exist, it will be created.
 	 *
-	 * @param string $name  The logger name
-	 * @param mixed  $class
+	 * @param mixed $class
 	 *
 	 * @return Logger
 	 */
@@ -172,7 +173,7 @@ class GLogger {
 	/**
 	 * Logs the incoming data (headers + body) to debug.
 	 */
-	public function LogIncoming(\Sabre\HTTP\RequestInterface $request) {
+	public function LogIncoming(RequestInterface $request) {
 		// only do any of this is we are looking for debug messages
 		if ($this->logger->isHandling(Logger::DEBUG)) {
 			$inputHeader = $request->getMethod() . ' ' . $request->getUrl() . ' HTTP/' . $request->getHTTPVersion() . "\r\n";
@@ -202,7 +203,7 @@ class GLogger {
 	/**
 	 * Logs the outgoing data (headers + body) to debug.
 	 */
-	public function LogOutgoing(\Sabre\HTTP\ResponseInterface $response) {
+	public function LogOutgoing(ResponseInterface $response) {
 		// only do any of this is we are looking for debug messages
 		if ($this->logger->isHandling(Logger::DEBUG)) {
 			$output = 'HTTP/' . $response->getHttpVersion() . ' ' . $response->getStatus() . ' ' . $response->getStatusText() . "\n";
