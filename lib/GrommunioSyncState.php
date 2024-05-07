@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
  *
  * Class for handling sync state.
  */
@@ -11,6 +11,7 @@ namespace grommunio\DAV;
 
 class GrommunioSyncState {
 	private $db;
+	private $logger;
 
 	/**
 	 * Constructor.

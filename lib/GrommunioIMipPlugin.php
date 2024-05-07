@@ -2,14 +2,20 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
  *
  * Sends meeting invitations.
  */
 
 namespace grommunio\DAV;
 
-class GrommunioIMipPlugin extends \Sabre\CalDAV\Schedule\IMipPlugin {
+use Sabre\CalDAV\Schedule\IMipPlugin;
+use Sabre\VObject\ITip\Message;
+
+class GrommunioIMipPlugin extends IMipPlugin {
+	private $logger;
+	protected $gDavBackend;
+
 	/**
 	 * Constructor.
 	 */
@@ -24,7 +30,7 @@ class GrommunioIMipPlugin extends \Sabre\CalDAV\Schedule\IMipPlugin {
 	 * Using the information in iTipMessage to send out a meeting
 	 * invitation.
 	 */
-	public function schedule(\Sabre\VObject\ITip\Message $iTipMessage) {
+	public function schedule(Message $iTipMessage) {
 		$this->logger->trace("method: %s - recipient: %s - significantChange: %d - scheduleStatus: %s - message: %s", $iTipMessage->method, $iTipMessage->recipient, $iTipMessage->significantChange, $iTipMessage->scheduleStatus, $iTipMessage->message->serialize());
 
 		if (!$iTipMessage->significantChange) {
