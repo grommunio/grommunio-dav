@@ -40,29 +40,6 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	}
 
 	/**
-	 * Publish free/busy information.
-	 *
-	 * Uses the FreeBusyPublish class to publish the information
-	 * about free/busy status.
-	 *
-	 * @param string       $calendarId
-	 * @param mapiresource $calendar
-	 */
-	private function UpdateFB($calendarId, $calendar) {
-		$session = $this->gDavBackend->GetSession();
-		$store = $this->gDavBackend->GetStoreById($calendarId);
-		$weekUnixTime = 7 * 24 * 60 * 60;
-		$start = time() - $weekUnixTime;
-		$range = strtotime("+7 weeks");
-		$storeProps = mapi_getprops($store, [PR_MAILBOX_OWNER_ENTRYID]);
-		if (!isset($storeProps[PR_MAILBOX_OWNER_ENTRYID])) {
-			return;
-		}
-		$pub = new \FreeBusyPublish($session, $store, $calendar, $storeProps[PR_MAILBOX_OWNER_ENTRYID]);
-		$pub->publishFB($start, $range);
-	}
-
-	/**
 	 * Returns a list of calendars for a principal.
 	 *
 	 * Every project is an array with the following keys:
@@ -341,7 +318,6 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			return null;
 		}
 
-		// $this->UpdateFB($calendarId, $folder);
 		return '"' . $retval . '"';
 	}
 
@@ -374,7 +350,6 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			return null;
 		}
 
-		// $this->UpdateFB($calendarId, $folder);
 		return '"' . $retval . '"';
 	}
 
