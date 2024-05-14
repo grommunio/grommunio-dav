@@ -2,14 +2,17 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
  *
  * grommunio DAV Principals backend class.
  */
 
 namespace grommunio\DAV;
 
-class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterface {
+use Sabre\DAV\PropPatch;
+use Sabre\DAVACL\PrincipalBackend\BackendInterface;
+
+class PrincipalsBackend implements BackendInterface {
 	protected $gDavBackend;
 
 	/**
@@ -100,8 +103,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @param string $path
 	 */
-	public function updatePrincipal($path, \Sabre\DAV\PropPatch $propPatch) {
-	}
+	public function updatePrincipal($path, PropPatch $propPatch) {}
 
 	/**
 	 * This method is used to search for principals matching a set of
@@ -133,6 +135,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 * @return array
 	 */
 	public function searchPrincipals($prefixPath, array $searchProperties, $test = 'allof') {
+		return [];
 	}
 
 	/**
@@ -154,6 +157,7 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 * @return string
 	 */
 	public function findByUri($uri, $principalPrefix) {
+		return '';
 	}
 
 	/**
@@ -185,6 +189,5 @@ class PrincipalsBackend implements \Sabre\DAVACL\PrincipalBackend\BackendInterfa
 	 *
 	 * @param string $principal
 	 */
-	public function setGroupMemberSet($principal, array $members) {
-	}
+	public function setGroupMemberSet($principal, array $members) {}
 }
