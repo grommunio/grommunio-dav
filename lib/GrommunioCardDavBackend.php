@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
  *
  * grommunio Card DAV backend class which handles contact related activities.
  */
@@ -301,6 +301,8 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($addressBookId, $cardUri, $mapifolder, static::FILE_EXTENSION);
 		$props = mapi_getprops($mapimessage, [PR_ENTRYID]);
 		mapi_folder_deletemessages($mapifolder, [$props[PR_ENTRYID]]);
+
+		return true;
 	}
 
 	/**
