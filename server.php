@@ -54,7 +54,7 @@ $server = new Server($nodes);
 $server->setBaseUri(DAV_ROOT_URI);
 $server->setLogger($logger->getGPSR3Logger());
 
-$authPlugin = new \Sabre\DAV\Auth\Plugin($authBackend, SABRE_AUTH_REALM);
+$authPlugin = new \Sabre\DAV\Auth\Plugin($authBackend);
 $server->addPlugin($authPlugin);
 
 // add our version to the headers
