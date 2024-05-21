@@ -35,21 +35,3 @@ checks:
 tools:
   php_cs_fixer:
     config: .phpcs
-coding_style:
-  php:
-    spaces:
-      indent_style: "\t"
-      line_endings: "\n"
-    braces:
-      position_after_functions_and_oop_constructs: "same"
-    yoda_conditions: false
-    keywords:
-      casing: "lower"
-    operators:
-      concatenate_space: "one"
-    control_structures:
-      continuation_position: "next_line"
-    comments:
-      inline_comment_spacing: false
-    quotes:
-      single_quote: false
