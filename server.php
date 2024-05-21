@@ -74,7 +74,7 @@ $imipPlugin = new GrommunioIMipPlugin($gdavBackend, new GLogger('imip'));
 $server->addPlugin($imipPlugin);
 
 $server->addPlugin(new ICSExportPlugin());
-$server->addPlugin(new \Sabre\CardDAV\Plugin());
+$server->addPlugin(new Plugin());
 
 // TODO: do we need $caldavPlugin for anything?
 $caldavPlugin = new \Sabre\CalDAV\Plugin();
