@@ -8,7 +8,8 @@
     },
     "require-dev": {
         "phpunit/phpunit"   : "^9",
-        "phpstan/phpstan"   : "^1.10"
+        "phpstan/phpstan"   : "^1.10",
+        "friendsofphp/php-cs-fixer": "^3.57"
     },
     "license"               : "AGPL v3",
     "authors": [

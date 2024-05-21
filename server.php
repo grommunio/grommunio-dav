@@ -54,7 +54,7 @@ $server = new Server($nodes);
 $server->setBaseUri(DAV_ROOT_URI);
 $server->setLogger($logger->getGPSR3Logger());
 
-$authPlugin = new \Sabre\DAV\Auth\Plugin($authBackend, SABRE_AUTH_REALM);
+$authPlugin = new \Sabre\DAV\Auth\Plugin($authBackend);
 $server->addPlugin($authPlugin);
 
 // add our version to the headers
@@ -74,7 +74,7 @@ $imipPlugin = new GrommunioIMipPlugin($gdavBackend, new GLogger('imip'));
 $server->addPlugin($imipPlugin);
 
 $server->addPlugin(new ICSExportPlugin());
-$server->addPlugin(new \Sabre\CardDAV\Plugin());
+$server->addPlugin(new Plugin());
 
 // TODO: do we need $caldavPlugin for anything?
 $caldavPlugin = new \Sabre\CalDAV\Plugin();
