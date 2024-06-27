@@ -89,11 +89,9 @@ class PHPWrapper {
 	 * @return long
 	 */
 	public function ImportMessageChange($props, $flags, $retmapimessage) {
+		$entryid = $props[PR_ENTRYID] ?? null;
 		// if the entryid is not available, do the fallback to the sourcekey
-		if (isset($props[PR_ENTRYID])) {
-			$entryid = $props[PR_ENTRYID];
-		}
-		elseif (isset($props[PR_SOURCE_KEY], $props[PR_PARENT_SOURCE_KEY])) {
+		if (!$entryid && isset($props[PR_SOURCE_KEY], $props[PR_PARENT_SOURCE_KEY])) {
 			$entryid = mapi_msgstore_entryidfromsourcekey($this->store, $props[PR_PARENT_SOURCE_KEY], $props[PR_SOURCE_KEY]);
 		}
 		$mapimessage = mapi_msgstore_openentry($this->store, $entryid);
