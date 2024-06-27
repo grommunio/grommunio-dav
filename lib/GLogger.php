@@ -42,7 +42,7 @@ class GLogger {
 		}
 
 		// let GLogger handle error messages
-		set_error_handler('\\grommunio\\DAV\\GLogger::ErrorHandler');
+		set_error_handler('\grommunio\DAV\GLogger::ErrorHandler');
 	}
 
 	/**
@@ -101,20 +101,17 @@ class GLogger {
 		// Log messages formatting
 		$lineFormat = null;
 
-		if (isset($configuration['lineFormat']) &&
-			is_string($configuration['lineFormat'])) {
+		if (isset($configuration['lineFormat']) && is_string($configuration['lineFormat'])) {
 			$lineFormat = stripcslashes($configuration['lineFormat']);
 		} // stripcslashes to recognize "\n"
 
 		$timeFormat = null;
 
-		if (isset($configuration['timeFormat']) &&
-			is_string($configuration['timeFormat'])) {
+		if (isset($configuration['timeFormat']) && is_string($configuration['timeFormat'])) {
 			$timeFormat = $configuration['timeFormat'];
 		}
 
-		if ($lineFormat ||
-			$timeFormat) {
+		if ($lineFormat || $timeFormat) {
 			$formatter = new LineFormatter($lineFormat, $timeFormat, true, true);
 			$stream->setFormatter($formatter);
 		}
@@ -261,14 +258,28 @@ class GLogger {
 		$t = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
 
 		if ($count == 0) {
-			$this->logger->error(sprintf("No arguments in %s->%s() logging to '%s' in %s:%d", static::GetClassnameOnly($t[2]['class']), $t[2]['function'], $t[1]['function'], $t[1]['file'], $t[1]['line']));
+			$this->logger->error(sprintf(
+				"No arguments in %s->%s() logging to '%s' in %s:%d",
+				static::GetClassnameOnly($t[2]['class']),
+				$t[2]['function'],
+				$t[1]['function'],
+				$t[1]['file'],
+				$t[1]['line']
+			));
 
 			return false;
 		}
 		// Only check formatting if there are format parameters. Otherwise there will be
 		// an error log if the $arguments[0] contain %-chars.
 		if (($count > 1) && ((substr_count($arguments[0], "%") - $quoted_procent * 2) !== $count - 1)) {
-			$this->logger->error(sprintf("Wrong number of arguments in %s->%s() logging to '%s' in %s:%d", static::GetClassnameOnly($t[2]['class']), $t[2]['function'], $t[1]['function'], $t[1]['file'], $t[1]['line']));
+			$this->logger->error(sprintf(
+				"Wrong number of arguments in %s->%s() logging to '%s' in %s:%d",
+				static::GetClassnameOnly($t[2]['class']),
+				$t[2]['function'],
+				$t[1]['function'],
+				$t[1]['file'],
+				$t[1]['line']
+			));
 
 			return false;
 		}
@@ -330,7 +341,7 @@ class GLogger {
 	 */
 	public static function ErrorHandler($errno, $errstr, $errfile, $errline, $errcontext = []) {
 		if (defined('LOG_ERROR_MASK')) {
-			$errno &= LOG_ERROR_MASK;
+			$errno &= \LOG_ERROR_MASK;
 		}
 
 		$logger = self::$parentLogger ?? new GLogger('error');
@@ -372,16 +383,13 @@ class GLogger {
 	 * if the loglevel is activated.
 	 *
 	 * @param mixed $message message
-	 * @param mixed ...params
 	 */
-	public function trace() {
-		if (DEVELOPER_MODE) {
-			if (!$this->verifyLogSyntax(func_get_args())) {
-				return;
-			}
+	public function trace(...$message) {
+		if (DEVELOPER_MODE && !$this->verifyLogSyntax($message)) {
+			return;
 		}
 		if ($this->logger->isHandling(Logger::TRACE)) {
-			$this->writeLog(Logger::TRACE, func_get_args());
+			$this->writeLog(Logger::TRACE, $message);
 		}
 	}
 
@@ -391,16 +399,13 @@ class GLogger {
 	 * if the loglevel is activated.
 	 *
 	 * @param mixed $message message
-	 * @param mixed ...params
 	 */
-	public function debug() {
-		if (DEVELOPER_MODE) {
-			if (!$this->verifyLogSyntax(func_get_args())) {
-				return;
-			}
+	public function debug(...$message) {
+		if (DEVELOPER_MODE && !$this->verifyLogSyntax($message)) {
+			return;
 		}
 		if ($this->logger->isHandling(Logger::DEBUG)) {
-			$this->writeLog(Logger::DEBUG, func_get_args());
+			$this->writeLog(Logger::DEBUG, $message);
 		}
 	}
 
@@ -410,16 +415,13 @@ class GLogger {
 	 * if the loglevel is activated.
 	 *
 	 * @param mixed $message message
-	 * @param mixed ...params
 	 */
-	public function info() {
-		if (DEVELOPER_MODE) {
-			if (!$this->verifyLogSyntax(func_get_args())) {
-				return;
-			}
+	public function info(...$message) {
+		if (DEVELOPER_MODE && !$this->verifyLogSyntax($message)) {
+			return;
 		}
 		if ($this->logger->isHandling(Logger::INFO)) {
-			$this->writeLog(Logger::INFO, func_get_args());
+			$this->writeLog(Logger::INFO, $message);
 		}
 	}
 
@@ -429,16 +431,13 @@ class GLogger {
 	 * if the loglevel is activated.
 	 *
 	 * @param mixed $message message
-	 * @param mixed ...params
 	 */
-	public function warn() {
-		if (DEVELOPER_MODE) {
-			if (!$this->verifyLogSyntax(func_get_args())) {
-				return;
-			}
+	public function warn(...$message) {
+		if (DEVELOPER_MODE && !$this->verifyLogSyntax($message)) {
+			return;
 		}
 		if ($this->logger->isHandling(Logger::WARNING)) {
-			$this->writeLog(Logger::WARNING, func_get_args(), ' - ' . $this->getCaller(1, true));
+			$this->writeLog(Logger::WARNING, $message, ' - ' . $this->getCaller(1, true));
 		}
 	}
 
@@ -448,16 +447,13 @@ class GLogger {
 	 * if the loglevel is activated.
 	 *
 	 * @param mixed $message message
-	 * @param mixed ...params
 	 */
-	public function error() {
-		if (DEVELOPER_MODE) {
-			if (!$this->verifyLogSyntax(func_get_args())) {
-				return;
-			}
+	public function error(...$message) {
+		if (DEVELOPER_MODE && !$this->verifyLogSyntax($message)) {
+			return;
 		}
 		if ($this->logger->isHandling(Logger::ERROR)) {
-			$this->writeLog(Logger::ERROR, func_get_args(), ' - ' . $this->getCaller(1, true));
+			$this->writeLog(Logger::ERROR, $message, ' - ' . $this->getCaller(1, true));
 		}
 	}
 
@@ -467,16 +463,13 @@ class GLogger {
 	 * if the loglevel is activated.
 	 *
 	 * @param mixed $message message
-	 * @param mixed ...params
 	 */
-	public function fatal() {
-		if (DEVELOPER_MODE) {
-			if (!$this->verifyLogSyntax(func_get_args())) {
-				return;
-			}
+	public function fatal(...$message) {
+		if (DEVELOPER_MODE && !$this->verifyLogSyntax($message)) {
+			return;
 		}
 		if ($this->logger->isHandling(Logger::CRITICAL)) {
-			$this->writeLog(Logger::CRITICAL, func_get_args(), ' - ' . $this->getCaller(1, true));
+			$this->writeLog(Logger::CRITICAL, $message, ' - ' . $this->getCaller(1, true));
 		}
 	}
 }
