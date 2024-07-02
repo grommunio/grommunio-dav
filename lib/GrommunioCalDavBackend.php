@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2024 grommunio GmbH
  *
  * grommunio CalDAV backend class which handles calendar related activities.
  */
@@ -356,9 +356,9 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	/**
 	 * Sets data for a calendar item.
 	 *
-	 * @param mixed       $calendarId
-	 * @param MAPIMessage $mapimessage
-	 * @param string      $ics
+	 * @param mixed  $calendarId
+	 * @param mixed  $mapimessage
+	 * @param string $ics
 	 *
 	 * @return null|string
 	 */
