@@ -185,7 +185,7 @@ class GrommunioDavBackend {
 	 * @param array  $filters
 	 * @param string $storeId (optional) mapi compatible storeid - required when using start+end filter
 	 *
-	 * @return array
+	 * @return array|null
 	 */
 	private function getRestrictionForFilters($filters, $storeId = null) {
 		$restrictions = [];
@@ -712,7 +712,7 @@ class GrommunioDavBackend {
 	 * @param int    $limit
 	 * @param array  $filters
 	 *
-	 * @return array
+	 * @return array|null
 	 */
 	public function Sync($folderId, $syncToken, $fileExtension, $limit = null, $filters = []) {
 		$arr = explode(':', $folderId);
@@ -741,7 +741,7 @@ class GrommunioDavBackend {
 			mapi_stream_write($stream, hex2bin($value));
 		}
 
-		// force restriction o "types" only to export only appointments or contacts
+		// force restriction of "types" to export only appointments or contacts
 		$restriction = $this->getRestrictionForFilters($filters);
 
 		// The last parameter in mapi_exportchanges_config is buffer size for mapi_exportchanges_synchronize - how many

@@ -141,7 +141,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 * @param string   $cardUri
 	 * @param resource $mapifolder    optional mapifolder resource, used if available
 	 *
-	 * @return array
+	 * @return array|bool
 	 */
 	public function getCard($addressBookId, $cardUri, $mapifolder = null) {
 		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);

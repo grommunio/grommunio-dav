@@ -56,7 +56,7 @@ class PrincipalsBackend implements BackendInterface {
 	 *
 	 * @param string $path
 	 *
-	 * @return array
+	 * @return array|bool
 	 */
 	public function getPrincipalByPath($path) {
 		if ($path === 'principals/public') {
