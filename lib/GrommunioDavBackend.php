@@ -271,7 +271,7 @@ class GrommunioDavBackend {
 	 * Create the object and set appttsref.
 	 *
 	 * @param mixed  $folderId
-	 * @param string $folder
+	 * @param mixed  $folder
 	 * @param string $objectId
 	 *
 	 * @return mixed
