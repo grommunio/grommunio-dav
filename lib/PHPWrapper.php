@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2024 grommunio GmbH
  *
  * PHP wrapper class for ICS.
  */
@@ -23,7 +23,7 @@ class PHPWrapper {
 	/**
 	 * Constructor.
 	 *
-	 * @param MAPIStore          $store
+	 * @param mixed              $store
 	 * @param GLogger            $logger
 	 * @param mixed              $props
 	 * @param string             $fileext
@@ -83,10 +83,10 @@ class PHPWrapper {
 	 * Imports a single message.
 	 *
 	 * @param array  $props
-	 * @param long   $flags
+	 * @param int    $flags
 	 * @param object $retmapimessage
 	 *
-	 * @return long
+	 * @return int
 	 */
 	public function ImportMessageChange($props, $flags, $retmapimessage) {
 		$entryid = $props[PR_ENTRYID] ?? null;
@@ -124,7 +124,7 @@ class PHPWrapper {
 	/**
 	 * Imports a list of messages to be deleted.
 	 *
-	 * @param long  $flags
+	 * @param int   $flags
 	 * @param array $sourcekeys array with sourcekeys
 	 */
 	public function ImportMessageDeletion($flags, $sourcekeys) {

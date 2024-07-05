@@ -2,13 +2,14 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2024 grommunio GmbH
  *
  * grommunio DAV ACL class.
  */
 
 namespace grommunio\DAV;
 
+use Sabre\DAV\INode;
 use Sabre\DAVACL\Plugin;
 
 class DAVACL extends Plugin {
@@ -19,7 +20,7 @@ class DAVACL extends Plugin {
 	 *
 	 * null will be returned if the node doesn't support ACLs.
 	 *
-	 * @param DAV\INode|string $node
+	 * @param INode|string $node
 	 *
 	 * @return array
 	 */

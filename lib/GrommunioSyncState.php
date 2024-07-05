@@ -41,7 +41,7 @@ class GrommunioSyncState {
 	 * @param string $folderid
 	 * @param string $id
 	 *
-	 * @return string
+	 * @return string|null
 	 */
 	public function getState($folderid, $id) {
 		$query = "SELECT value FROM gdav_sync_state WHERE folderid = :folderid AND id = :id";
@@ -98,7 +98,7 @@ class GrommunioSyncState {
 	 * @param string $folderid
 	 * @param string $sourcekey
 	 *
-	 * @return string
+	 * @return string|null
 	 */
 	public function getAppttsref($folderid, $sourcekey) {
 		$query = "SELECT appttsref FROM gdav_sync_appttsref WHERE folderid = :folderid AND sourcekey = :sourcekey";
@@ -121,7 +121,7 @@ class GrommunioSyncState {
 	 * @param string $folderid
 	 * @param string $appttsref
 	 *
-	 * @return string
+	 * @return string|null
 	 */
 	public function getSourcekey($folderid, $appttsref) {
 		$query = "SELECT sourcekey FROM gdav_sync_appttsref WHERE folderid = :folderid AND appttsref = :appttsref";

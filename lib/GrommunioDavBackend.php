@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2024 grommunio GmbH
  *
  * grommunio DAV backend class which handles grommunio related activities.
  */
@@ -185,7 +185,7 @@ class GrommunioDavBackend {
 	 * @param array  $filters
 	 * @param string $storeId (optional) mapi compatible storeid - required when using start+end filter
 	 *
-	 * @return array
+	 * @return array|null
 	 */
 	private function getRestrictionForFilters($filters, $storeId = null) {
 		$restrictions = [];
@@ -271,10 +271,10 @@ class GrommunioDavBackend {
 	 * Create the object and set appttsref.
 	 *
 	 * @param mixed  $folderId
-	 * @param string $folder
+	 * @param mixed  $folder
 	 * @param string $objectId
 	 *
-	 * @return mapiresource
+	 * @return mixed
 	 */
 	public function CreateObject($folderId, $folder, $objectId) {
 		$mapimessage = mapi_folder_createmessage($folder);
@@ -292,7 +292,7 @@ class GrommunioDavBackend {
 	 *
 	 * @param string $folderid
 	 *
-	 * @return mapiresource
+	 * @return mixed
 	 */
 	public function GetMapiFolder($folderid) {
 		$this->logger->trace('Id: %s', $folderid);
@@ -305,7 +305,7 @@ class GrommunioDavBackend {
 	/**
 	 * Returns MAPI addressbook.
 	 *
-	 * @return MAPIAddressbook
+	 * @return mixed
 	 */
 	public function GetAddressBook() {
 		// TODO should be a singleton
@@ -317,7 +317,7 @@ class GrommunioDavBackend {
 	 *
 	 * @param string $username
 	 *
-	 * @return false|MAPIStore if store not available
+	 * @return mixed
 	 */
 	public function OpenMapiStore($username = null) {
 		$msgstorestable = mapi_getmsgstorestable($this->session);
@@ -357,7 +357,7 @@ class GrommunioDavBackend {
 	 *
 	 * @param string $storename
 	 *
-	 * @return false|MAPIStore if the store is not available
+	 * @return mixed
 	 */
 	public function GetStore($storename) {
 		if ($storename == null) {
@@ -388,7 +388,7 @@ class GrommunioDavBackend {
 	 *
 	 * @param mixed $id
 	 *
-	 * @return false|MAPIStore on error
+	 * @return mixed
 	 */
 	public function GetStoreById($id) {
 		$arr = explode(':', $id);
@@ -399,7 +399,7 @@ class GrommunioDavBackend {
 	/**
 	 * Returns logon session.
 	 *
-	 * @return MAPISession
+	 * @return mixed
 	 */
 	public function GetSession() {
 		return $this->session;
@@ -411,8 +411,8 @@ class GrommunioDavBackend {
 	 *
 	 * This order is reflected as well when searching for a message with these ids in GrommunioDavBackend->GetMapiMessageForId().
 	 *
-	 * @param string       $folderId
-	 * @param mapiresource $mapimessage
+	 * @param string $folderId
+	 * @param mixed  $mapimessage
 	 *
 	 * @return string
 	 */
@@ -443,12 +443,12 @@ class GrommunioDavBackend {
 	 * Finds and opens a MapiMessage from an objectId.
 	 * The id can be a PROP_APPTTSREF or a PR_SOURCE_KEY (as hex).
 	 *
-	 * @param string       $folderId
-	 * @param string       $objectUri
-	 * @param mapiresource $mapifolder optional
-	 * @param string       $extension  optional
+	 * @param string $folderId
+	 * @param string $objectUri
+	 * @param mixed  $mapifolder optional
+	 * @param string $extension  optional
 	 *
-	 * @return null|mapiresource
+	 * @return mixed
 	 */
 	public function GetMapiMessageForId($folderId, $objectUri, $mapifolder = null, $extension = null) {
 		$this->logger->trace("Searching for '%s' in '%s' (%s) (%s)", $objectUri, $folderId, $mapifolder, $extension);
@@ -614,9 +614,9 @@ class GrommunioDavBackend {
 	 * return future calendar items (until $end), plus those since $start.
 	 * Origins: Z-Push.
 	 *
-	 * @param MAPIStore $store the MAPI store
-	 * @param long      $start Timestamp since when to include messages
-	 * @param long      $end   Ending timestamp
+	 * @param mixed $store the MAPI store
+	 * @param int   $start Timestamp since when to include messages
+	 * @param int   $end   Ending timestamp
 	 *
 	 * @return array
 	 */
@@ -712,7 +712,7 @@ class GrommunioDavBackend {
 	 * @param int    $limit
 	 * @param array  $filters
 	 *
-	 * @return array
+	 * @return array|null
 	 */
 	public function Sync($folderId, $syncToken, $fileExtension, $limit = null, $filters = []) {
 		$arr = explode(':', $folderId);
@@ -741,7 +741,7 @@ class GrommunioDavBackend {
 			mapi_stream_write($stream, hex2bin($value));
 		}
 
-		// force restriction o "types" only to export only appointments or contacts
+		// force restriction of "types" to export only appointments or contacts
 		$restriction = $this->getRestrictionForFilters($filters);
 
 		// The last parameter in mapi_exportchanges_config is buffer size for mapi_exportchanges_synchronize - how many

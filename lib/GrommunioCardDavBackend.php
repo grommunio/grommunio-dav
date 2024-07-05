@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2024 grommunio GmbH
  *
  * grommunio Card DAV backend class which handles contact related activities.
  */
@@ -141,7 +141,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 * @param string   $cardUri
 	 * @param resource $mapifolder    optional mapifolder resource, used if available
 	 *
-	 * @return array
+	 * @return array|bool
 	 */
 	public function getCard($addressBookId, $cardUri, $mapifolder = null) {
 		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);
@@ -154,7 +154,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		if (!$mapimessage) {
 			$this->logger->debug("Object NOT FOUND");
 
-			return null;
+			return false;
 		}
 
 		$realId = $this->gDavBackend->GetIdOfMapiMessage($addressBookId, $mapimessage);
@@ -260,9 +260,9 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	/**
 	 * Sets data for a contact.
 	 *
-	 * @param mixed       $addressBookId
-	 * @param MAPIMessage $mapimessage
-	 * @param string      $vcf
+	 * @param mixed  $addressBookId
+	 * @param mixed  $mapimessage
+	 * @param string $vcf
 	 *
 	 * @return null|string
 	 */
