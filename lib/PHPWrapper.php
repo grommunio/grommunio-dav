@@ -131,7 +131,7 @@ class PHPWrapper {
 		foreach ($sourcekeys as $sourcekey) {
 			$this->logger->trace("got %s", bin2hex($sourcekey));
 			$appttsref = $this->syncstate->getAppttsref($this->folderid, bin2hex($sourcekey));
-			if ($appttsref != null) {
+			if ($appttsref !== null) {
 				$this->deleted[] = $appttsref . $this->fileext;
 			}
 			else {

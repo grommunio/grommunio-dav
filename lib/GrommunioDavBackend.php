@@ -526,7 +526,7 @@ class GrommunioDavBackend {
 			$this->logger->debug("Try to get entryid from appttsref");
 			$arr = explode(':', $folderId);
 			$sk = $this->syncstate->getSourcekey($arr[1], $id);
-			if ($sk != null) {
+			if ($sk !== null) {
 				$this->logger->debug("Found sourcekey from appttsref %s", $sk);
 				$entryid = mapi_msgstore_entryidfromsourcekey($this->GetStoreById($arr[0]), hex2bin($arr[1]), hex2bin($sk));
 			}
@@ -733,7 +733,7 @@ class GrommunioDavBackend {
 		}
 		else {
 			$value = $this->syncstate->getState($arr[1], $syncToken);
-			if ($value == null) {
+			if ($value === null) {
 				$this->logger->error("Unable to get value from token: %s - folderId: %s", $syncToken, $folderId);
 
 				return null;
