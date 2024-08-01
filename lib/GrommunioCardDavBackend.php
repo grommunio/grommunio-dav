@@ -211,12 +211,8 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		$objectId = $this->gDavBackend->GetObjectIdFromObjectUri($cardUri, static::FILE_EXTENSION);
 		$folder = $this->gDavBackend->GetMapiFolder($addressBookId);
 		$mapimessage = $this->gDavBackend->CreateObject($addressBookId, $folder, $objectId);
-		$retval = $this->setData($addressBookId, $mapimessage, $cardData);
-		if (!$retval) {
-			return null;
-		}
 
-		return '"' . $retval . '"';
+		return $this->setData($addressBookId, $mapimessage, $cardData);
 	}
 
 	/**
@@ -249,12 +245,8 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		$this->logger->trace("addressBookId: %s - cardUri: %s - cardData: %s", $addressBookId, $cardUri, $cardData);
 
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($addressBookId, $cardUri, null, static::FILE_EXTENSION);
-		$retval = $this->setData($addressBookId, $mapimessage, $cardData);
-		if (!$retval) {
-			return null;
-		}
 
-		return '"' . $retval . '"';
+		return $this->setData($addressBookId, $mapimessage, $cardData);
 	}
 
 	/**
@@ -274,10 +266,9 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		$ok = mapi_vcftomapi($session, $store, $mapimessage, $vcf);
 		if ($ok) {
 			mapi_savechanges($mapimessage);
-			// $props = mapi_getprops($mapimessage, array(PR_LAST_MODIFICATION_TIME));
 			$props = mapi_getprops($mapimessage);
 
-			return $props[PR_LAST_MODIFICATION_TIME];
+			return '"' . $props[PR_LAST_MODIFICATION_TIME] . '"';
 		}
 
 		return null;
