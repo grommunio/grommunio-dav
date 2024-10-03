@@ -344,7 +344,7 @@ class GLogger {
 			$errno &= \LOG_ERROR_MASK;
 		}
 
-		$logger = self::$parentLogger ?? new GLogger('error');
+		$logger = new GLogger('error');
 
 		switch ($errno) {
 			case 0:
