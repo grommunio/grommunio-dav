@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2024 grommunio GmbH
  *
  * MAPI Property definitions.
  */
@@ -26,33 +26,46 @@ class MapiProps {
 			"sentrepresentingemail" => PR_SENT_REPRESENTING_EMAIL_ADDRESS,
 			"sentrepresentingaddt" => PR_SENT_REPRESENTING_ADDRTYPE,
 			"sentrepresentinsrchk" => PR_SENT_REPRESENTING_SEARCH_KEY,
-			"reminderset" => "PT_BOOLEAN:PSETID_Common:0x8503",
-			"remindertime" => "PT_LONG:PSETID_Common:0x8501",
-			"meetingstatus" => "PT_LONG:PSETID_Appointment:0x8217",
-			"isrecurring" => "PT_BOOLEAN:PSETID_Appointment:0x8223",
-			"recurringstate" => "PT_BINARY:PSETID_Appointment:0x8216",
-			"timezonetag" => "PT_BINARY:PSETID_Appointment:0x8233",
-			"timezonedesc" => "PT_STRING8:PSETID_Appointment:0x8234",
-			"recurrenceend" => "PT_SYSTIME:PSETID_Appointment:0x8236",
-			"responsestatus" => "PT_LONG:PSETID_Appointment:0x8218",
-			"commonstart" => "PT_SYSTIME:PSETID_Common:0x8516",
-			"commonend" => "PT_SYSTIME:PSETID_Common:0x8517",
-			"reminderstart" => "PT_SYSTIME:PSETID_Common:0x8502",
-			"duration" => "PT_LONG:PSETID_Appointment:0x8213",
-			"private" => "PT_BOOLEAN:PSETID_Common:0x8506",
-			"uid" => "PT_BINARY:PSETID_Meeting:0x23",
-			"sideeffects" => "PT_LONG:PSETID_Common:0x8510",
-			"flagdueby" => "PT_SYSTIME:PSETID_Common:0x8560",
+			"reminderset" => "PT_BOOLEAN:PSETID_Common:" . PidLidReminderSet,
+			"remindertime" => "PT_LONG:PSETID_Common:" . PidLidReminderDelta,
+			"meetingstatus" => "PT_LONG:PSETID_Appointment:" . PidLidAppointmentStateFlags,
+			"isrecurring" => "PT_BOOLEAN:PSETID_Appointment:" . PidLidRecurring,
+			"recurringstate" => "PT_BINARY:PSETID_Appointment:" . PidLidAppointmentRecur,
+			"timezonetag" => "PT_BINARY:PSETID_Appointment:" . PidLidTimeZoneStruct,
+			"timezonedesc" => "PT_STRING8:PSETID_Appointment:" . PidLidTimeZoneDescription,
+			"recurrenceend" => "PT_SYSTIME:PSETID_Appointment:" . PidLidClipEnd,
+			"responsestatus" => "PT_LONG:PSETID_Appointment:" . PidLidResponseStatus,
+			"commonstart" => "PT_SYSTIME:PSETID_Common:" . PidLidCommonStart,
+			"commonend" => "PT_SYSTIME:PSETID_Common:" . PidLidCommonEnd,
+			"reminderstart" => "PT_SYSTIME:PSETID_Common:" . PidLidReminderTime,
+			"duration" => "PT_LONG:PSETID_Appointment:" . PidLidAppointmentDuration,
+			"private" => "PT_BOOLEAN:PSETID_Common:" . PidLidPrivate,
+			"uid" => "PT_BINARY:PSETID_Meeting:" . PidLidCleanGlobalObjectId,
+			"sideeffects" => "PT_LONG:PSETID_Common:" . PidLidSideEffects,
+			"flagdueby" => "PT_SYSTIME:PSETID_Common:" . PidLidReminderSignalTime,
 			"icon" => PR_ICON_INDEX,
-			"mrwassent" => "PT_BOOLEAN:PSETID_Appointment:0x8229",
-			"endtime" => "PT_SYSTIME:PSETID_Appointment:0x820e", // this is here for calendar restriction, tnef and ical
-			"starttime" => "PT_SYSTIME:PSETID_Appointment:0x820d", // this is here for calendar restriction, tnef and ical
-			"clipstart" => "PT_SYSTIME:PSETID_Appointment:0x8235", // ical only
-			"recurrencetype" => "PT_LONG:PSETID_Appointment:0x8231",
+			"mrwassent" => "PT_BOOLEAN:PSETID_Appointment:" . PidLidFInvited,
+			"endtime" => "PT_SYSTIME:PSETID_Appointment:" . PidLidAppointmentEndWhole, // this is here for calendar restriction, tnef and ical
+			"starttime" => "PT_SYSTIME:PSETID_Appointment:" . PidLidAppointmentStartWhole, // this is here for calendar restriction, tnef and ical
+			"clipstart" => "PT_SYSTIME:PSETID_Appointment:" . PidLidClipStart, // ical only
+			"recurrencetype" => "PT_LONG:PSETID_Appointment:" . PidLidRecurrenceType,
 			"body" => PR_BODY,
 			"rtfcompressed" => PR_RTF_COMPRESSED,
 			"html" => PR_HTML,
 			"rtfinsync" => PR_RTF_IN_SYNC,
+		];
+	}
+
+	/**
+	 * Returns default values for some appointment properties.
+	 *
+	 * @return array
+	 */
+	public static function GetDefaultAppoinmentProperties() {
+		return [
+			"isrecurring" => false,
+			"meetingstatus" => olNonMeeting,
+			"responsestatus" => olResponseNone,
 		];
 	}
 }
