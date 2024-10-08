@@ -602,7 +602,10 @@ class GrommunioDavBackend {
 		if (!isset($this->customprops[$id])) {
 			$this->logger->trace("Fetching properties id:%s", $id);
 			$store = $this->GetStoreById($id);
-			$properties = getPropIdsFromStrings($store, ["goid" => "PT_BINARY:PSETID_Meeting:0x3", "vcarduid" => MapiProps::PROP_VCARDUID]);
+			$properties = getPropIdsFromStrings($store, [
+				"goid" => "PT_BINARY:PSETID_Meeting:" . PidLidGlobalObjectId,
+				"vcarduid" => MapiProps::PROP_VCARDUID,
+			]);
 			$this->customprops[$id] = $properties;
 		}
 
@@ -789,5 +792,32 @@ class GrommunioDavBackend {
 		$this->logger->trace("Returning %s", $result);
 
 		return $result;
+	}
+
+	/**
+	 * Returns an array of necessary properties to set with default values.
+	 *
+	 * @see MapiProps::GetDefault...Properties()
+	 *
+	 * @param mixed $id	   storeid
+	 * @param mixed $mapimessage  mapi message to check
+	 * @param array $propList     array of mapped properties
+	 * @param array $defaultProps array of necessary properties with default values
+	 *
+	 * @return array
+	 */
+	public function GetPropsToSet($id, $mapimessage, $propList, $defaultProps) {
+		$propsToSet = [];
+		$store = $this->GetStoreById($id);
+		$propList = getPropIdsFromStrings($store, $propList);
+		$props = mapi_getprops($mapimessage);
+
+		foreach ($defaultProps as $prop => $value) {
+			if (!isset($props[$propList[$prop]])) {
+				$propsToSet[$propList[$prop]] = $value;
+			}
+		}
+
+		return $propsToSet;
 	}
 }

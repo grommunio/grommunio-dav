@@ -423,8 +423,15 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			return null;
 		}
 
+		$propList = MapiProps::GetAppointmentProperties();
+		$defaultProps = MapiProps::GetDefaultAppoinmentProperties();
+		$propsToSet = $this->gDavBackend->GetPropsToSet($calendarId, $mapimessage, $propList, $defaultProps);
+		if (!empty($propsToSet)) {
+			mapi_setprops($mapimessage, $propsToSet);
+		}
+
 		mapi_savechanges($mapimessage);
-		$props = mapi_getprops($mapimessage);
+		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
 
 		return $props[PR_LAST_MODIFICATION_TIME];
 	}
