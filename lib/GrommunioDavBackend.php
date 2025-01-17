@@ -50,7 +50,7 @@ class GrommunioDavBackend {
 		$this->user = $user;
 		$this->logger->debug("Auth: OK - user %s - session %s", $this->user, $this->session);
 
-		return true;
+		return $this->isGdavEnabled();
 	}
 
 	/**
@@ -799,7 +799,7 @@ class GrommunioDavBackend {
 	 *
 	 * @see MapiProps::GetDefault...Properties()
 	 *
-	 * @param mixed $id	   storeid
+	 * @param mixed $id           storeid
 	 * @param mixed $mapimessage  mapi message to check
 	 * @param array $propList     array of mapped properties
 	 * @param array $defaultProps array of necessary properties with default values
@@ -819,5 +819,22 @@ class GrommunioDavBackend {
 		}
 
 		return $propsToSet;
+	}
+
+	/**
+	 * Checks whether the user is enabled for grommunio-dav.
+	 *
+	 * @return bool
+	 */
+	private function isGdavEnabled() {
+		$storeProps = mapi_getprops($this->GetStore($this->GetUser()), [PR_EC_ENABLED_FEATURES_L]);
+		if ($storeProps[PR_EC_ENABLED_FEATURES_L] & UP_DAV) {
+			$this->logger->debug("user %s is enabled for grommunio-dav", $this->user);
+
+			return true;
+		}
+		$this->logger->debug("user %s is disabled for grommunio-dav", $this->user);
+
+		return false;
 	}
 }
