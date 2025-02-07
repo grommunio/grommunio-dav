@@ -207,7 +207,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 * @return null|string
 	 */
 	public function createCard($addressBookId, $cardUri, $cardData) {
-		$this->logger->trace("addressBookId: %s - cardUri: %s - cardData: %s", $addressBookId, $cardUri, $cardData);
+		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);
 		$objectId = $this->gDavBackend->GetObjectIdFromObjectUri($cardUri, static::FILE_EXTENSION);
 		$folder = $this->gDavBackend->GetMapiFolder($addressBookId);
 		$mapimessage = $this->gDavBackend->CreateObject($addressBookId, $folder, $objectId);
@@ -242,7 +242,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 * @return null|string
 	 */
 	public function updateCard($addressBookId, $cardUri, $cardData) {
-		$this->logger->trace("addressBookId: %s - cardUri: %s - cardData: %s", $addressBookId, $cardUri, $cardData);
+		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);
 
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($addressBookId, $cardUri, null, static::FILE_EXTENSION);
 
@@ -259,7 +259,6 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 * @return null|string
 	 */
 	private function setData($addressBookId, $mapimessage, $vcf) {
-		$this->logger->trace("mapimessage: %s - vcf: %s", $mapimessage, $vcf);
 		$store = $this->gDavBackend->GetStoreById($addressBookId);
 		$session = $this->gDavBackend->GetSession();
 

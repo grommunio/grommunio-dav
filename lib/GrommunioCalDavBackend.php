@@ -309,7 +309,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 * @return null|string
 	 */
 	public function createCalendarObject($calendarId, $objectUri, $calendarData) {
-		$this->logger->trace("calendarId: %s - objectUri: %s - calendarData: %s", $calendarId, $objectUri, $calendarData);
+		$this->logger->trace("calendarId: %s - objectUri: %s", $calendarId, $objectUri);
 		$objectId = $this->gDavBackend->GetObjectIdFromObjectUri($objectUri, static::FILE_EXTENSION);
 		$folder = $this->gDavBackend->GetMapiFolder($calendarId);
 		$mapimessage = $this->gDavBackend->CreateObject($calendarId, $folder, $objectId);
@@ -341,7 +341,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 * @return null|string
 	 */
 	public function updateCalendarObject($calendarId, $objectUri, $calendarData) {
-		$this->logger->trace("calendarId: %s - objectUri: %s - calendarData: %s", $calendarId, $objectUri, $calendarData);
+		$this->logger->trace("calendarId: %s - objectUri: %s", $calendarId, $objectUri);
 
 		$folder = $this->gDavBackend->GetMapiFolder($calendarId);
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($calendarId, $objectUri, null, static::FILE_EXTENSION);
@@ -363,7 +363,6 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 * @return null|string
 	 */
 	private function setData($calendarId, $mapimessage, $ics) {
-		$this->logger->trace("mapimessage: %s - ics: %s", $mapimessage, $ics);
 		// this should be cached or moved to gDavBackend
 		$store = $this->gDavBackend->GetStoreById($calendarId);
 		$session = $this->gDavBackend->GetSession();
