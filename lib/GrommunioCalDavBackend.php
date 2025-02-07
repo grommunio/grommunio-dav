@@ -191,7 +191,6 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		$start = $end = null;
 		$types = [];
 		foreach ($filters['comp-filters'] as $filter) {
-			$this->logger->trace("got filter: %s", $filter);
 
 			if ($filter['name'] == 'VEVENT') {
 				$types[] = 'IPM.Appointment';
