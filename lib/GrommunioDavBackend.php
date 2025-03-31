@@ -209,7 +209,7 @@ class GrommunioDavBackend {
 		}
 		if (!empty($restrictions)) {
 			$restriction = [RES_AND, $restrictions];
-			$this->logger->trace("getRestrictionForFilters - got restriction: %s", $restriction);
+			$this->logger->trace("getRestrictionForFilters - got restriction: %s", simplifyRestriction($restriction));
 
 			return $restriction;
 		}
