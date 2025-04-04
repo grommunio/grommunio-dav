@@ -1,8 +1,9 @@
 <?php
+
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 - 2024 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2025 grommunio GmbH
  *
  * grommunio DAV backend class which handles grommunio related activities.
  */
@@ -185,7 +186,7 @@ class GrommunioDavBackend {
 	 * @param array  $filters
 	 * @param string $storeId (optional) mapi compatible storeid - required when using start+end filter
 	 *
-	 * @return array|null
+	 * @return null|array
 	 */
 	private function getRestrictionForFilters($filters, $storeId = null) {
 		$restrictions = [];
@@ -246,6 +247,7 @@ class GrommunioDavBackend {
 			if (!$realId) {
 				$realId = bin2hex($row[PR_SOURCE_KEY]);
 			}
+			$realId = rawurlencode($realId);
 
 			$result = [
 				'id' => $realId,
@@ -429,7 +431,7 @@ class GrommunioDavBackend {
 			$id = getUidFromGoid($props[$properties['goid']]);
 			$this->logger->debug("Found uid %s from goid: %s", $id, bin2hex($props[$properties['goid']]));
 			if ($id != null) {
-				return $id;
+				return rawurlencode($id);
 			}
 		}
 		// PR_SOURCE_KEY is always available
@@ -457,7 +459,7 @@ class GrommunioDavBackend {
 			$mapifolder = $this->GetMapiFolder($folderId);
 		}
 
-		$id = $this->GetObjectIdFromObjectUri($objectUri, $extension);
+		$id = rawurldecode($this->GetObjectIdFromObjectUri($objectUri, $extension));
 
 		/* The ID can be several different things:
 		 * - a UID that is saved in goid
@@ -484,10 +486,6 @@ class GrommunioDavBackend {
 			$this->logger->trace("Entryid not found. Try goid/vcarduid %s", $id);
 
 			$properties = $this->GetCustomProperties($folderId);
-			if (strpos($id, '%40') !== false) {
-				$this->logger->debug("The id contains '%40'. Use urldecode.");
-				$id = urldecode($id);
-			}
 			$restriction = [];
 
 			if ($extension) {
@@ -715,7 +713,7 @@ class GrommunioDavBackend {
 	 * @param int    $limit
 	 * @param array  $filters
 	 *
-	 * @return array|null
+	 * @return null|array
 	 */
 	public function Sync($folderId, $syncToken, $fileExtension, $limit = null, $filters = []) {
 		$arr = explode(':', $folderId);
