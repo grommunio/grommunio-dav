@@ -1,8 +1,9 @@
 <?php
+
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 - 2024 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2025 grommunio GmbH
  *
  * PHP wrapper class for ICS.
  */
@@ -110,6 +111,7 @@ class PHPWrapper {
 			$this->logger->trace("got %s (PR_SOURCE_KEY), flags: %d", bin2hex($messageProps[PR_SOURCE_KEY]), $flags);
 			$url = bin2hex($messageProps[PR_SOURCE_KEY]);
 		}
+		$url = rawurlencode($url);
 
 		if ($flags == SYNC_NEW_MESSAGE) {
 			$this->added[] = $url . $this->fileext;
