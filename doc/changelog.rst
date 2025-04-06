@@ -1,3 +1,17 @@
+grommunio-dav 1.5 (2025-04-06)
+==============================
+
+Fixes:
+
+* Urlencode vcaluids in anticipation of special characters
+
+Behavioral changes:
+
+* nginx: extend default fastcgi_read_timeout to 360s
+* nginx: do not intercept DAV errors transported back to clients
+* curb excessive calendar logging
+
+
 grommunio-dav 1.4 (2025-01-28)
 ==============================
 
