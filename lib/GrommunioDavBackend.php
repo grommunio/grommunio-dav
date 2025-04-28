@@ -42,7 +42,7 @@ class GrommunioDavBackend {
 		$userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'unknown';
 		$this->session = mapi_logon_zarafa($user, $pass, MAPI_SERVER, null, null, 1, $gDavVersion, $userAgent);
 		if (!$this->session) {
-			$this->logger->info("Auth: ERROR - logon failed for user %s", $user);
+			$this->logger->info("Auth: ERROR - logon failed for user %s from IP %s", $user, $_SERVER['REMOTE_ADDR']);
 
 			return false;
 		}
