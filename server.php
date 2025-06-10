@@ -36,7 +36,11 @@ $logger->debug('grommunio-dav version %s', GDAV_VERSION);
 $logger->debug('SabreDAV version %s', Version::VERSION);
 
 $gdavBackend = new GrommunioDavBackend(new GLogger('dav'));
-$authBackend = new AuthBasicBackend($gdavBackend);
+if (defined("SABRE_AUTH_BACKEND") && strcmp(SABRE_AUTH_BACKEND, "apache") == 0) {
+	$authBackend = new AuthApache;
+} else {
+	$authBackend = new AuthBasicBackend($gdavBackend);
+}
 $authBackend->setRealm(SABRE_AUTH_REALM);
 $principalBackend = new PrincipalsBackend($gdavBackend);
 $gCarddavBackend = new GrommunioCardDavBackend($gdavBackend, new GLogger('card'));
