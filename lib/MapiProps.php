@@ -53,6 +53,7 @@ class MapiProps {
 			"rtfcompressed" => PR_RTF_COMPRESSED,
 			"html" => PR_HTML,
 			"rtfinsync" => PR_RTF_IN_SYNC,
+			"messageflags" => PR_MESSAGE_FLAGS,
 		];
 	}
 
@@ -66,6 +67,7 @@ class MapiProps {
 			"isrecurring" => false,
 			"meetingstatus" => olNonMeeting,
 			"responsestatus" => olResponseNone,
+			"messageflags" => MSGFLAG_READ,
 		];
 	}
 }
