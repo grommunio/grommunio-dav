@@ -189,14 +189,12 @@ class GrommunioDavBackend {
 	 * @return null|array
 	 */
 	private function getRestrictionForFilters($filters, $storeId = null) {
-		$restrictions = [];
-		if (isset($filters['start'], $filters['end'], $storeId)) {
-			$this->logger->trace("getRestrictionForFilters - got start: %d and end: %d", $filters['start'], $filters['end']);
-			$subrestriction = $this->GetCalendarRestriction($storeId, $filters['start'], $filters['end']);
-			$restrictions[] = $subrestriction;
-		}
-		if (isset($filters['types'])) {
-			$this->logger->trace("getRestrictionForFilters - got types: %s", $filters['types']);
+		$hasTimerange = isset($filters['start'], $filters['end'], $storeId);
+		$hasTypes = isset($filters['types']) && is_array($filters['types']) && !empty($filters['types']);
+
+		// Fast path: only message-class filtering, no time-range.
+		if (!$hasTimerange && $hasTypes) {
+			$this->logger->trace("getRestrictionForFilters - types only: %s", $filters['types']);
 			$arr = [];
 			foreach ($filters['types'] as $filter) {
 				$arr[] = [RES_PROPERTY,
@@ -206,11 +204,48 @@ class GrommunioDavBackend {
 					],
 				];
 			}
-			$restrictions[] = [RES_OR, $arr];
+			$restriction = [RES_OR, $arr];
+			$this->logger->trace("getRestrictionForFilters - built: %s", simplifyRestriction($restriction));
+
+			return $restriction;
 		}
-		if (!empty($restrictions)) {
-			$restriction = [RES_AND, $restrictions];
-			$this->logger->trace("getRestrictionForFilters - got restriction: %s", simplifyRestriction($restriction));
+
+		// Time-range only (no explicit types) – interpret as events time-range.
+		if ($hasTimerange && !$hasTypes) {
+			$this->logger->trace("getRestrictionForFilters - timerange only start:%d end:%d", $filters['start'], $filters['end']);
+			$restriction = $this->GetCalendarRestriction($storeId, $filters['start'], $filters['end']);
+			$this->logger->trace("getRestrictionForFilters - built: %s", simplifyRestriction($restriction));
+
+			return $restriction;
+		}
+
+		// Both types and time-range. Apply date restriction to appointments only,
+		// and include other types (e.g., tasks) without date constraints.
+		if ($hasTimerange && $hasTypes) {
+			$this->logger->trace("getRestrictionForFilters - timerange + types start:%d end:%d types:%s", $filters['start'], $filters['end'], $filters['types']);
+			$orParts = [];
+
+			$dateRestriction = $this->GetCalendarRestriction($storeId, $filters['start'], $filters['end']);
+			foreach ($filters['types'] as $type) {
+				if ($type === 'IPM.Appointment') {
+					$orParts[] = [RES_AND, [
+						$dateRestriction,
+						[RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => PR_MESSAGE_CLASS, VALUE => 'IPM.Appointment']],
+					]];
+				}
+				else {
+					// Other types (e.g., tasks) – no date constraint.
+					$orParts[] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => PR_MESSAGE_CLASS, VALUE => $type]];
+				}
+			}
+
+			// If no parts were added, return null.
+			if (empty($orParts)) {
+				return null;
+			}
+
+			$restriction = [RES_OR, $orParts];
+			$this->logger->trace("getRestrictionForFilters - built: %s", simplifyRestriction($restriction));
 
 			return $restriction;
 		}

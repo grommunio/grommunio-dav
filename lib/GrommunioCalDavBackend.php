@@ -1,4 +1,5 @@
 <?php
+
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
@@ -26,8 +27,8 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	protected $gDavBackend;
 
 	public const FILE_EXTENSION = '.ics';
-	// TODO: implement Task support - Issue: #10
-	public const MESSAGE_CLASSES = ['IPM.Appointment' /* , 'IPM.Note' */];
+	// Include both appointments and tasks so task lists sync properly.
+	public const MESSAGE_CLASSES = ['IPM.Appointment', 'IPM.Task'];
 	public const CONTAINER_CLASS = 'IPF.Appointment';
 	public const CONTAINER_CLASSES = ['IPF.Appointment', 'IPF.Task'];
 
@@ -84,8 +85,23 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	public function createCalendar($principalUri, $calendarUri, array $properties) {
 		$this->logger->trace("principalUri: %s - calendarUri: %s - properties: %s", $principalUri, $calendarUri, $properties);
 
+		// Determine requested component set to choose proper container class.
+		$containerClass = static::CONTAINER_CLASS; // default to appointments
+		$key = '{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set';
+		if (isset($properties[$key]) && method_exists($properties[$key], 'getValue')) {
+			$components = $properties[$key]->getValue();
+			if (is_array($components)) {
+				if (in_array('VTODO', $components, true)) {
+					$containerClass = 'IPF.Task';
+				}
+				elseif (in_array('VEVENT', $components, true)) {
+					$containerClass = 'IPF.Appointment';
+				}
+			}
+		}
+
 		// TODO Add displayname
-		return $this->gDavBackend->CreateFolder($principalUri, $calendarUri, static::CONTAINER_CLASS, "");
+		return $this->gDavBackend->CreateFolder($principalUri, $calendarUri, $containerClass, "");
 	}
 
 	/**
@@ -191,7 +207,6 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		$start = $end = null;
 		$types = [];
 		foreach ($filters['comp-filters'] as $filter) {
-
 			if ($filter['name'] == 'VEVENT') {
 				$types[] = 'IPM.Appointment';
 			}
@@ -279,8 +294,8 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			'etag' => '"' . $props[PR_LAST_MODIFICATION_TIME] . '"',
 			'lastmodified' => $props[PR_LAST_MODIFICATION_TIME],
 			'calendarid' => $calendarId,
-			'size' => strlen($ics),
-			'calendardata' => $ics,
+			'size' => ($ics !== null ? strlen($ics) : 0),
+			'calendardata' => ($ics !== null ? $ics : ''),
 		];
 		$this->logger->trace("returned data id: %s - size: %d - etag: %s", $r['id'], $r['size'], $r['etag']);
 
@@ -420,11 +435,14 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			return null;
 		}
 
-		$propList = MapiProps::GetAppointmentProperties();
-		$defaultProps = MapiProps::GetDefaultAppoinmentProperties();
-		$propsToSet = $this->gDavBackend->GetPropsToSet($calendarId, $mapimessage, $propList, $defaultProps);
-		if (!empty($propsToSet)) {
-			mapi_setprops($mapimessage, $propsToSet);
+		// Set default properties only for VEVENTs. VTODOs use different property sets.
+		if (stripos($ics, 'BEGIN:VEVENT') !== false) {
+			$propList = MapiProps::GetAppointmentProperties();
+			$defaultProps = MapiProps::GetDefaultAppoinmentProperties();
+			$propsToSet = $this->gDavBackend->GetPropsToSet($calendarId, $mapimessage, $propList, $defaultProps);
+			if (!empty($propsToSet)) {
+				mapi_setprops($mapimessage, $propsToSet);
+			}
 		}
 
 		mapi_savechanges($mapimessage);
