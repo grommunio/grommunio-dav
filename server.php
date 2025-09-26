@@ -1,4 +1,5 @@
 <?php
+
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
@@ -37,8 +38,9 @@ $logger->debug('SabreDAV version %s', Version::VERSION);
 
 $gdavBackend = new GrommunioDavBackend(new GLogger('dav'));
 if (defined("SABRE_AUTH_BACKEND") && strcmp(SABRE_AUTH_BACKEND, "apache") == 0) {
-	$authBackend = new AuthApache;
-} else {
+	$authBackend = new AuthApache();
+}
+else {
 	$authBackend = new AuthBasicBackend($gdavBackend);
 }
 $authBackend->setRealm(SABRE_AUTH_REALM);

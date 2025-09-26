@@ -1,4 +1,5 @@
 <?php
+
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
@@ -20,8 +21,6 @@ class GrommunioCardDavBackendTest extends \PHPUnit_Framework_TestCase {
 	private $kCardDavBackend;
 
 	/**
-	 * {@inheritDoc}
-	 *
 	 * @see PHPUnit_Framework_TestCase::setUp()
 	 */
 	protected function setUp() {
@@ -31,8 +30,6 @@ class GrommunioCardDavBackendTest extends \PHPUnit_Framework_TestCase {
 	}
 
 	/**
-	 * {@inheritDoc}
-	 *
 	 * @see PHPUnit_Framework_TestCase::tearDown()
 	 */
 	protected function tearDown() {
