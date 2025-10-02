@@ -39,8 +39,8 @@ At a glance
 Built with
 ==========
 
-* PHP 7.4+, 8.x
-* PHP modules: ctype, curl, dom, iconv, mbsting, sqlite, xml, xmlreader, xmlwriter
+* PHP 8.x
+* PHP modules: ctype, curl, dom, iconv, mbstring, sqlite, xml, xmlreader, xmlwriter
 * PHP backend module: mapi
 
 Getting started
