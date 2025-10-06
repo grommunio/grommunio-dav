@@ -134,8 +134,6 @@ class GrommunioDavBackend {
 
 		$rootprops = mapi_getprops($rootfolder, [PR_IPM_CONTACT_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID]);
 		foreach ($rows as $row) {
-			$folderId = $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]);
-			$syncToken = $this->GetCurrentSyncToken($folderId);
 			if ($row[PR_FOLDER_TYPE] == FOLDER_SEARCH) {
 				continue;
 			}
@@ -145,10 +143,10 @@ class GrommunioDavBackend {
 			}
 
 			$folder = [
-				'id' => $folderId,
+				'id' => $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]),
 				'uri' => $row[PR_DISPLAY_NAME],
 				'principaluri' => $principalUri,
-				'{http://sabredav.org/ns}sync-token' => $syncToken,
+				'{http://sabredav.org/ns}sync-token' => '0000000000',
 				'{DAV:}displayname' => $row[PR_DISPLAY_NAME],
 				'{urn:ietf:params:xml:ns:caldav}calendar-description' => $row[PR_COMMENT],
 				'{http://calendarserver.org/ns/}getctag' => isset($row[PR_LOCAL_COMMIT_TIME_MAX]) ? strval($row[PR_LOCAL_COMMIT_TIME_MAX]) : '0000000000',
@@ -433,27 +431,6 @@ class GrommunioDavBackend {
 		$arr = explode(':', $id);
 
 		return $this->GetStore($arr[0]);
-	}
-
-	/**
-	 * Returns the current sync-token for the folder if one was issued.
-	 *
-	 * @param string $folderId composite id in form principal:sourcekey
-	 *
-	 * @return string
-	 */
-	public function GetCurrentSyncToken($folderId) {
-		$arr = explode(':', $folderId, 2);
-		if (count($arr) < 2 || $arr[1] === '') {
-			return '0000000000';
-		}
-
-		$token = $this->syncstate->getCurrentToken($arr[1]);
-		if (!is_string($token) || $token === '') {
-			return '0000000000';
-		}
-
-		return $token;
 	}
 
 	/**

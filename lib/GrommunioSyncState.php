@@ -31,9 +31,7 @@ class GrommunioSyncState {
 		          CREATE TABLE IF NOT EXISTS gdav_sync_appttsref (
 		          sourcekey VARCHAR(255), folderid VARCHAR(255), appttsref VARCHAR(255),
 		          PRIMARY KEY (sourcekey, folderid));
-		          CREATE INDEX IF NOT EXISTS idx_appttsref ON gdav_sync_appttsref(appttsref);
-		          CREATE TABLE IF NOT EXISTS gdav_sync_state_current (
-		          folderid VARCHAR(255) PRIMARY KEY, token VARCHAR(255));";
+		          CREATE INDEX IF NOT EXISTS idx_appttsref ON gdav_sync_appttsref(appttsref);";
 
 		$this->db->exec($query);
 	}
@@ -74,46 +72,6 @@ class GrommunioSyncState {
 		$statement->bindParam(":folderid", $folderid);
 		$statement->bindParam(":id", $id);
 		$statement->bindParam(":value", $value);
-		$statement->execute();
-
-		$this->setCurrentToken($folderid, $id);
-	}
-
-	/**
-	 * Returns the latest sync token assigned to the folder.
-	 *
-	 * @param string $folderid
-	 *
-	 * @return null|string
-	 */
-	public function getCurrentToken($folderid) {
-		$query = "SELECT token FROM gdav_sync_state_current WHERE folderid = :folderid";
-		$statement = $this->db->prepare($query);
-		$statement->bindParam(":folderid", $folderid);
-		$statement->execute();
-		$result = $statement->fetch();
-		if (!$result) {
-			return null;
-		}
-
-		return $result['token'];
-	}
-
-	/**
-	 * Persists the current sync token for the folder.
-	 *
-	 * @param string      $folderid
-	 * @param null|string $token
-	 */
-	private function setCurrentToken($folderid, $token) {
-		if ($token === null) {
-			return;
-		}
-
-		$query = "REPLACE INTO gdav_sync_state_current (folderid, token) VALUES (:folderid, :token)";
-		$statement = $this->db->prepare($query);
-		$statement->bindParam(":folderid", $folderid);
-		$statement->bindParam(":token", $token);
 		$statement->execute();
 	}
 
