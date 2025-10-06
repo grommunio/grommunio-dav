@@ -13,6 +13,7 @@ namespace grommunio\DAV;
 use Sabre\CalDAV\Backend\AbstractBackend;
 use Sabre\CalDAV\Backend\SchedulingSupport;
 use Sabre\CalDAV\Backend\SyncSupport;
+use Sabre\VObject\Reader;
 
 class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSupport, SyncSupport {
 	/*
@@ -435,6 +436,10 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			return null;
 		}
 
+		if (stripos($ics, 'BEGIN:VTODO') !== false) {
+			$this->applyVtodoSpecificProperties($store, $mapimessage, $ics);
+		}
+
 		// Set default properties only for VEVENTs. VTODOs use different property sets.
 		if (stripos($ics, 'BEGIN:VEVENT') !== false) {
 			$propList = MapiProps::GetAppointmentProperties();
@@ -449,6 +454,182 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
 
 		return $props[PR_LAST_MODIFICATION_TIME];
+	}
+
+	/**
+	 * Ensures VTODO-specific fields such as start date, due date, priority and estimated duration
+	 * are populated even when mapi_icaltomapi leaves them unset.
+	 *
+	 * @param mixed  $store
+	 * @param mixed  $mapimessage
+	 * @param string $ics
+	 */
+	private function applyVtodoSpecificProperties($store, $mapimessage, $ics) {
+		try {
+			$vcalendar = Reader::read($ics);
+		}
+		catch (\Throwable $throwable) {
+			$this->logger->debug("Unable to parse VTODO data for supplemental property mapping: %s", $throwable->getMessage());
+
+			return;
+		}
+
+		$vtodos = $vcalendar->select('VTODO');
+		if (empty($vtodos)) {
+			return;
+		}
+
+		/** @var \Sabre\VObject\Component\VTodo $vtodo */
+		$vtodo = reset($vtodos);
+
+		$propMap = getPropIdsFromStrings($store, [
+			'taskStart' => 'PT_SYSTIME:PSETID_Task:' . PidLidTaskStartDate,
+			'taskDue' => 'PT_SYSTIME:PSETID_Task:' . PidLidTaskDueDate,
+			'commonStart' => 'PT_SYSTIME:PSETID_Common:' . PidLidCommonStart,
+			'commonEnd' => 'PT_SYSTIME:PSETID_Common:' . PidLidCommonEnd,
+			'estimatedEffort' => 'PT_LONG:PSETID_Task:' . PidLidTaskEstimatedEffort,
+		]);
+
+		$propsToUpdate = [];
+
+		if (isset($vtodo->DTSTART)) {
+			$timestamp = $this->timestampFromVObjectProperty($vtodo->DTSTART);
+			if ($timestamp !== null) {
+				if (isset($propMap['taskStart'])) {
+					$propsToUpdate[$propMap['taskStart']] = $timestamp;
+				}
+				if (isset($propMap['commonStart'])) {
+					$propsToUpdate[$propMap['commonStart']] = $timestamp;
+				}
+			}
+		}
+
+		if (isset($vtodo->DUE)) {
+			$timestamp = $this->timestampFromVObjectProperty($vtodo->DUE);
+			if ($timestamp !== null) {
+				if (isset($propMap['taskDue'])) {
+					$propsToUpdate[$propMap['taskDue']] = $timestamp;
+				}
+				if (isset($propMap['commonEnd'])) {
+					$propsToUpdate[$propMap['commonEnd']] = $timestamp;
+				}
+			}
+		}
+
+		if (isset($vtodo->{'ESTIMATED-DURATION'})) {
+			$minutes = $this->minutesFromIsoDuration($vtodo->{'ESTIMATED-DURATION'}->getValue());
+			if ($minutes !== null && isset($propMap['estimatedEffort'])) {
+				$propsToUpdate[$propMap['estimatedEffort']] = $minutes;
+			}
+		}
+
+		if (isset($vtodo->PRIORITY)) {
+			$priorityMapping = $this->mapPriorityValues($vtodo->PRIORITY->getValue());
+			if ($priorityMapping !== null) {
+				if (isset($priorityMapping['importance'])) {
+					$propsToUpdate[PR_IMPORTANCE] = $priorityMapping['importance'];
+				}
+				if (isset($priorityMapping['priority'])) {
+					$propsToUpdate[PR_PRIORITY] = $priorityMapping['priority'];
+				}
+			}
+		}
+
+		if (!empty($propsToUpdate)) {
+			mapi_setprops($mapimessage, $propsToUpdate);
+		}
+	}
+
+	/**
+	 * Converts a VObject datetime property into a UTC timestamp suitable for PT_SYSTIME fields.
+	 *
+	 * @param \Sabre\VObject\Property $property
+	 *
+	 * @return int|null
+	 */
+	private function timestampFromVObjectProperty($property) {
+		if (!$property instanceof \Sabre\VObject\Property) {
+			return null;
+		}
+
+		try {
+			if ($property instanceof \Sabre\VObject\Property\ICalendar\DateTime) {
+				$dateTime = $property->getDateTime(new \DateTimeZone('UTC'));
+			}
+			else {
+				$dateTime = new \DateTimeImmutable((string) $property, new \DateTimeZone('UTC'));
+			}
+		}
+		catch (\Throwable $throwable) {
+			$this->logger->debug("Unable to interpret iCalendar date value: %s", $throwable->getMessage());
+
+			return null;
+		}
+
+		return (int) $dateTime->getTimestamp();
+	}
+
+	/**
+	 * Converts an ISO-8601 duration string into minutes as expected by PidLidTaskEstimatedEffort.
+	 *
+	 * @param string $duration
+	 *
+	 * @return int|null
+	 */
+	private function minutesFromIsoDuration($duration) {
+		$duration = trim((string) $duration);
+		if ($duration === '') {
+			return null;
+		}
+
+		$rawDuration = $duration;
+		$isNegative = false;
+		if ($duration[0] === '-') {
+			$isNegative = true;
+			$duration = substr($duration, 1);
+		}
+
+		try {
+			$interval = new \DateInterval($duration);
+		}
+		catch (\Throwable $throwable) {
+			$this->logger->debug("Unable to parse ISO duration '%s': %s", $rawDuration, $throwable->getMessage());
+
+			return null;
+		}
+
+		$reference = new \DateTimeImmutable('@0');
+		$target = $reference->add($interval);
+		$seconds = $target->getTimestamp() - $reference->getTimestamp();
+		$minutes = (int) round($seconds / 60);
+
+		return $isNegative ? -$minutes : $minutes;
+	}
+
+	/**
+	 * Maps RFC5545 PRIORITY values onto the MAPI importance/priority fields.
+	 *
+	 * @param string $priority
+	 *
+	 * @return array|null
+	 */
+	private function mapPriorityValues($priority) {
+		if ($priority === null || $priority === '') {
+			return null;
+		}
+
+		$priority = (int) $priority;
+		if ($priority >= 1 && $priority <= 4) {
+			return ['importance' => IMPORTANCE_HIGH, 'priority' => 1];
+		}
+		if ($priority === 5) {
+			return ['importance' => IMPORTANCE_NORMAL, 'priority' => 0];
+		}
+		if ($priority >= 6 && $priority <= 9) {
+			return ['importance' => IMPORTANCE_LOW, 'priority' => -1];
+		}
+
+		return null;
 	}
 
 	/**
