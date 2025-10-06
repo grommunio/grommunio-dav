@@ -3,7 +3,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2025 grommunio GmbH
  *
  * Class for handling sync state.
  */
@@ -136,5 +136,25 @@ class GrommunioSyncState {
 		}
 
 		return $result['sourcekey'];
+	}
+
+	/**
+	 * Fetch id(token) information for a folderId (e.g. calenderId).
+	 *
+	 * @param string $folderid
+	 *
+	 * @return null|string
+	 */
+	public function getCurrentToken($folderId) {
+		$query = "SELECT id FROM gdav_sync_state WHERE folderid = :folderid";
+		$statement = $this->db->prepare($query);
+		$statement->bindParam(":folderid", $folderid);
+		$statement->execute();
+		$result = $statement->fetch();
+		if (!$result) {
+			return null;
+		}
+
+		return $result['id'];
 	}
 }

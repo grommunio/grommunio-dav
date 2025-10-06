@@ -137,16 +137,18 @@ class GrommunioDavBackend {
 			if ($row[PR_FOLDER_TYPE] == FOLDER_SEARCH) {
 				continue;
 			}
+			$folderId = $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]);
+			$syncToken = $this->GetCurrentSyncToken($folderId);
 
 			if (isset($row[PR_PARENT_ENTRYID], $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) && $row[PR_PARENT_ENTRYID] == $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) {
 				continue;
 			}
 
 			$folder = [
-				'id' => $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]),
+				'id' => $folderId,
 				'uri' => $row[PR_DISPLAY_NAME],
 				'principaluri' => $principalUri,
-				'{http://sabredav.org/ns}sync-token' => '0000000000',
+				'{http://sabredav.org/ns}sync-token' => $syncToken,
 				'{DAV:}displayname' => $row[PR_DISPLAY_NAME],
 				'{urn:ietf:params:xml:ns:caldav}calendar-description' => $row[PR_COMMENT],
 				'{http://calendarserver.org/ns/}getctag' => isset($row[PR_LOCAL_COMMIT_TIME_MAX]) ? strval($row[PR_LOCAL_COMMIT_TIME_MAX]) : '0000000000',
@@ -764,7 +766,7 @@ class GrommunioDavBackend {
 		}
 
 		$stream = mapi_stream_create();
-		if ($syncToken == null) {
+		if ($syncToken == null || $syncToken == '0000000000') {
 			mapi_stream_write($stream, hex2bin("0000000000000000"));
 		}
 		else {
@@ -852,6 +854,24 @@ class GrommunioDavBackend {
 		}
 
 		return $propsToSet;
+	}
+
+	/**
+	 * Returns the current sync-token for the folder if one was issued.
+	 *
+	 * @param string $folderId composite id in form principal:sourcekey
+	 *
+	 * @return string
+	*/
+	public function GetCurrentSyncToken($folderId) {
+		$arr = explode(':', $folderId, 2);
+		if (count($arr) < 2 || $arr[1] === '') {
+			return '0000000000';
+		}
+
+		$token = $this->syncstate->getCurrentToken($arr[1]);
+
+		return (!is_string($token) || $token === '') ? '0000000000' : $token;
 	}
 
 	/**
