@@ -412,12 +412,22 @@ class GrommunioDavBackend {
 			return $this->stores[$storename];
 		}
 
-		$this->stores[$storename] = $this->OpenMapiStore($storename);
-		if (!$this->stores[$storename]) {
+		$store = $this->OpenMapiStore($storename);
+		if (!$store) {
 			$this->logger->info("Auth: ERROR - unable to open store for %s (0x%08X)", $storename, mapi_last_hresult());
 
 			return false;
 		}
+
+		// g-dav#61: always use SMTP address (issue with altnames)
+		$storeProps = mapi_getprops($store, [PR_MAILBOX_OWNER_ENTRYID]);
+		$addressbook = $this->getAddressbook();
+		$mailuser = mapi_ab_openentry($addressbook, $storeProps[PR_MAILBOX_OWNER_ENTRYID]);
+		$smtpProps = mapi_getprops($mailuser, [PR_SMTP_ADDRESS]);
+		if (isset($smtpProps[PR_SMTP_ADDRESS])) {
+			$storename = $this->user = $smtpProps[PR_SMTP_ADDRESS];
+		}
+		$this->stores[$storename] = $store;
 
 		return $this->stores[$storename];
 	}
