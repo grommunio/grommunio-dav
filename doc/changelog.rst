@@ -1,3 +1,23 @@
+grommunio-dav 1.6 (2025-12-16)
+==============================
+
+Fixes:
+
+* Login with altnames
+* New appointment as unread in grommunio-web and outlook
+
+Enhancements:
+
+* Task support
+* Sabre's Apache authentication backend
+* Let client know of server-side sync-token changes
+* Log IP address for failed logins
+
+Behavioral changes:
+
+* move phpcs config file to recommended default
+
+
 grommunio-dav 1.5 (2025-04-06)
 ==============================
 
