@@ -3,7 +3,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2026 grommunio GmbH
  *
  * This is the entry point through which all requests are processed.
  */
@@ -44,7 +44,7 @@ else {
 	$authBackend = new AuthBasicBackend($gdavBackend);
 }
 $authBackend->setRealm(SABRE_AUTH_REALM);
-$principalBackend = new PrincipalsBackend($gdavBackend);
+$principalBackend = new PrincipalsBackend($gdavBackend, new GLogger('princpl'));
 $gCarddavBackend = new GrommunioCardDavBackend($gdavBackend, new GLogger('card'));
 $gCaldavBackend = new GrommunioCalDavBackend($gdavBackend, new GLogger('cal'));
 
