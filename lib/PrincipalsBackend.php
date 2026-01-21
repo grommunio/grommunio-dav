@@ -3,7 +3,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2026 grommunio GmbH
  *
  * grommunio DAV Principals backend class.
  */
@@ -15,12 +15,14 @@ use Sabre\DAVACL\PrincipalBackend\BackendInterface;
 
 class PrincipalsBackend implements BackendInterface {
 	protected $gDavBackend;
+	private $logger;
 
 	/**
 	 * Constructor.
 	 */
-	public function __construct(GrommunioDavBackend $gDavBackend) {
+	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
 		$this->gDavBackend = $gDavBackend;
+		$this->logger = $glogger;
 	}
 
 	/**
@@ -80,6 +82,7 @@ class PrincipalsBackend implements BackendInterface {
 		}
 		$emailaddress = $userinfo['emailaddress'] ?? false;
 		$fullname = $userinfo['fullname'] ?? false;
+		$this->logger->trace("fullname: %s emailaddress: %s", $fullname, $emailaddress);
 
 		return [
 			'id' => $username,
