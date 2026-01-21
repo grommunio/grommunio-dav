@@ -80,7 +80,7 @@ class PrincipalsBackend implements BackendInterface {
 		if (!$userinfo) {
 			return false;
 		}
-		$emailaddress = $userinfo['emailaddress'] ?? false;
+		$emailaddress = $userinfo['primary_email'] ?? false;
 		$fullname = $userinfo['fullname'] ?? false;
 		$this->logger->trace("fullname: %s emailaddress: %s", $fullname, $emailaddress);
 
