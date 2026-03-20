@@ -241,7 +241,8 @@ class GalCache {
 	/**
 	 * Return changes since the given sync token.
 	 *
-	 * @param string $syncToken
+	 * @param string     $syncToken
+	 * @param null|mixed $limit
 	 *
 	 * @return null|array null if token is unknown/expired
 	 */
@@ -313,6 +314,7 @@ class GalCache {
 			if ($limit > 0 && $count > $limit) {
 				break;
 			}
+
 			switch ($row['change_type']) {
 				case 'added':
 					$added[] = $row['uri'];
