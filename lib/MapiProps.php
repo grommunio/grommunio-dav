@@ -13,6 +13,13 @@ namespace grommunio\DAV;
 class MapiProps {
 	public const PROP_VCARDUID = "PT_UNICODE:PSETID_GROMOX:vcarduid";
 
+	// Apple/DAV folder-level metadata stored in PSETID_GROMOX.
+	// calendar-color is transported as a 7 or 9 character hex string (e.g. "#RRGGBB" or "#RRGGBBAA").
+	public const PROP_CALENDAR_COLOR = "PT_UNICODE:PSETID_GROMOX:dav-calendar-color";
+	public const PROP_CALENDAR_ORDER = "PT_LONG:PSETID_GROMOX:dav-calendar-order";
+	// schedule-calendar-transp: false (or unset) => opaque, true => transparent.
+	public const PROP_CALENDAR_TRANSP = "PT_BOOLEAN:PSETID_GROMOX:dav-calendar-transp";
+
 	/**
 	 * Returns appointment specific MAPI properties
 	 * Origins: Z-Push.
