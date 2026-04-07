@@ -183,6 +183,48 @@ class GrommunioDavBackend {
 	}
 
 	/**
+	 * Resolves MAPI named property tags for the Apple/DAV folder metadata stored in PSETID_GROMOX.
+	 *
+	 * @param mixed $store MAPI store
+	 *
+	 * @return array keys: calendarColor, calendarOrder, calendarTransp
+	 */
+	public function GetFolderDavProperties($store) {
+		return getPropIdsFromStrings($store, [
+			"calendarColor" => MapiProps::PROP_CALENDAR_COLOR,
+			"calendarOrder" => MapiProps::PROP_CALENDAR_ORDER,
+			"calendarTransp" => MapiProps::PROP_CALENDAR_TRANSP,
+		]);
+	}
+
+	/**
+	 * Applies a PROPPATCH-derived set of folder properties to the MAPI folder backing $folderId.
+	 *
+	 * Accepts a map of property tag => value. Values that are null cause the property to be deleted.
+	 *
+	 * @param string $folderId
+	 * @param array  $propsToSet    property tag => value
+	 * @param array  $propsToDelete property tags to delete
+	 *
+	 * @return bool
+	 */
+	public function UpdateFolderProperties($folderId, array $propsToSet, array $propsToDelete = []) {
+		$folder = $this->GetMapiFolder($folderId);
+		if (!$folder) {
+			return false;
+		}
+		if (!empty($propsToSet)) {
+			mapi_setprops($folder, $propsToSet);
+		}
+		if (!empty($propsToDelete)) {
+			mapi_deleteprops($folder, $propsToDelete);
+		}
+		mapi_savechanges($folder);
+
+		return true;
+	}
+
+	/**
 	 * Returns a MAPI restriction for a defined set of filters.
 	 *
 	 * @param array  $filters
