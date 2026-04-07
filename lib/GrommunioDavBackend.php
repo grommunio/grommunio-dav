@@ -80,6 +80,13 @@ class GrommunioDavBackend {
 		$folder = mapi_msgstore_openentry($this->GetStore($principalUri), $props[PR_IPM_SUBTREE_ENTRYID]);
 		$newfolder = mapi_folder_createfolder($folder, $url, $displayname);
 		mapi_setprops($newfolder, [PR_CONTAINER_CLASS => $class]);
+		// Return the composite folder id (principal:sourcekey) so callers that need to address the
+		// freshly created folder via GetMapiFolder()/UpdateFolderProperties() can do so without
+		// another round-trip. The original URL is still used by Sabre as the URI segment.
+		$newprops = mapi_getprops($newfolder, [PR_SOURCE_KEY]);
+		if (isset($newprops[PR_SOURCE_KEY])) {
+			return $principalUri . ':' . bin2hex($newprops[PR_SOURCE_KEY]);
+		}
 
 		return $url;
 	}
