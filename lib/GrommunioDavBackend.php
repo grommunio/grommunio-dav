@@ -136,8 +136,14 @@ class GrommunioDavBackend {
 		}
 		mapi_table_restrict($hierarchy, [RES_OR, $restrictions]);
 
+		$davProps = $this->GetFolderDavProperties($store);
+
 		// TODO how to handle hierarchies?
-		$rows = mapi_table_queryallrows($hierarchy, [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX, PR_CONTAINER_CLASS, PR_COMMENT, PR_PARENT_ENTRYID]);
+		$queryCols = [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX, PR_CONTAINER_CLASS, PR_COMMENT, PR_PARENT_ENTRYID];
+		foreach ($davProps as $tag) {
+			$queryCols[] = $tag;
+		}
+		$rows = mapi_table_queryallrows($hierarchy, $queryCols);
 
 		$rootprops = mapi_getprops($rootfolder, [PR_IPM_CONTACT_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID]);
 		foreach ($rows as $row) {
@@ -167,6 +173,15 @@ class GrommunioDavBackend {
 			}
 			if ($row[PR_CONTAINER_CLASS] == "IPF.Appointment") {
 				$folder['{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set'] = new SupportedCalendarComponentSet(['VEVENT']);
+			}
+
+			// Apple-specific folder metadata (calendar-color, calendar-order) stored in PSETID_GROMOX.
+			// Apple Calendar requests these on every PROPFIND and PROPPATCHes them on calendar creation/edit.
+			if (isset($row[$davProps['calendarColor']])) {
+				$folder['{http://apple.com/ns/ical/}calendar-color'] = $row[$davProps['calendarColor']];
+			}
+			if (isset($row[$davProps['calendarOrder']])) {
+				$folder['{http://apple.com/ns/ical/}calendar-order'] = (int) $row[$davProps['calendarOrder']];
 			}
 
 			// ensure default contacts folder is put first, some clients
