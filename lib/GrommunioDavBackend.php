@@ -165,6 +165,7 @@ class GrommunioDavBackend {
 				'{http://sabredav.org/ns}sync-token' => $syncToken,
 				'{DAV:}displayname' => $row[PR_DISPLAY_NAME],
 				'{urn:ietf:params:xml:ns:caldav}calendar-description' => $row[PR_COMMENT],
+				'{urn:ietf:params:xml:ns:carddav}addressbook-description' => $row[PR_COMMENT],
 				'{http://calendarserver.org/ns/}getctag' => isset($row[PR_LOCAL_COMMIT_TIME_MAX]) ? strval($row[PR_LOCAL_COMMIT_TIME_MAX]) : '0000000000',
 			];
 
