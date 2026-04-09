@@ -10,6 +10,7 @@
 
 namespace grommunio\DAV;
 
+use Sabre\CalDAV\Xml\Property\ScheduleCalendarTransp;
 use Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet;
 
 class GrommunioDavBackend {
@@ -182,6 +183,11 @@ class GrommunioDavBackend {
 			}
 			if (isset($row[$davProps['calendarOrder']])) {
 				$folder['{http://apple.com/ns/ical/}calendar-order'] = (int) $row[$davProps['calendarOrder']];
+			}
+			// schedule-calendar-transp only applies to calendar folders (RFC 6638).
+			if (in_array($row[PR_CONTAINER_CLASS], ['IPF.Appointment', 'IPF.Task'], true)) {
+				$transp = isset($row[$davProps['calendarTransp']]) && $row[$davProps['calendarTransp']] ? 'transparent' : 'opaque';
+				$folder['{urn:ietf:params:xml:ns:caldav}schedule-calendar-transp'] = new ScheduleCalendarTransp($transp);
 			}
 
 			// ensure default contacts folder is put first, some clients
