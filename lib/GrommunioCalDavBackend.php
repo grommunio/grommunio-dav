@@ -13,6 +13,8 @@ namespace grommunio\DAV;
 use Sabre\CalDAV\Backend\AbstractBackend;
 use Sabre\CalDAV\Backend\SchedulingSupport;
 use Sabre\CalDAV\Backend\SyncSupport;
+use Sabre\CalDAV\Xml\Property\ScheduleCalendarTransp;
+use Sabre\DAV\PropPatch;
 use Sabre\VObject\Reader;
 
 class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSupport, SyncSupport {
@@ -103,6 +105,114 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 
 		// TODO Add displayname
 		return $this->gDavBackend->CreateFolder($principalUri, $calendarUri, $containerClass, "");
+	}
+
+	/**
+	 * Updates properties for a calendar (PROPPATCH).
+	 *
+	 * Apple Calendar and iOS send PROPPATCH requests for {http://apple.com/ns/ical/}calendar-color and
+	 * {http://apple.com/ns/ical/}calendar-order on every calendar it touches. Without this handler the
+	 * Sabre default returns 403 Forbidden for each unknown property, which causes Apple clients to fall
+	 * into a resync loop.
+	 *
+	 * @param mixed $calendarId
+	 */
+	public function updateCalendar($calendarId, PropPatch $propPatch) {
+		$this->logger->trace("calendarId: %s", $calendarId);
+
+		$supportedProperties = [
+			'{DAV:}displayname',
+			'{urn:ietf:params:xml:ns:caldav}calendar-description',
+			'{urn:ietf:params:xml:ns:caldav}schedule-calendar-transp',
+			'{http://apple.com/ns/ical/}calendar-color',
+			'{http://apple.com/ns/ical/}calendar-order',
+		];
+
+		$propPatch->handle($supportedProperties, function ($mutations) use ($calendarId) {
+			return $this->applyCalendarProperties($calendarId, $mutations);
+		});
+	}
+
+	/**
+	 * Translates DAV/Apple calendar properties into MAPI properties and stores them on the folder.
+	 *
+	 * @param string $folderId
+	 * @param array  $mutations map of clark-notation property name => value (null = remove)
+	 *
+	 * @return bool
+	 */
+	private function applyCalendarProperties($folderId, array $mutations) {
+		if (empty($mutations)) {
+			return true;
+		}
+
+		$store = $this->gDavBackend->GetStoreById($folderId);
+		if (!$store) {
+			return false;
+		}
+		$davProps = $this->gDavBackend->GetFolderDavProperties($store);
+
+		$propsToSet = [];
+		$propsToDelete = [];
+
+		foreach ($mutations as $propertyName => $propertyValue) {
+			switch ($propertyName) {
+				case '{DAV:}displayname':
+					if ($propertyValue === null || $propertyValue === '') {
+						return false;
+					}
+					$propsToSet[PR_DISPLAY_NAME] = (string) $propertyValue;
+					break;
+
+				case '{urn:ietf:params:xml:ns:caldav}calendar-description':
+					if ($propertyValue === null) {
+						$propsToDelete[] = PR_COMMENT;
+					}
+					else {
+						$propsToSet[PR_COMMENT] = (string) $propertyValue;
+					}
+					break;
+
+				case '{http://apple.com/ns/ical/}calendar-color':
+					if ($propertyValue === null || $propertyValue === '') {
+						$propsToDelete[] = $davProps['calendarColor'];
+					}
+					else {
+						$propsToSet[$davProps['calendarColor']] = (string) $propertyValue;
+					}
+					break;
+
+				case '{http://apple.com/ns/ical/}calendar-order':
+					if ($propertyValue === null || $propertyValue === '') {
+						$propsToDelete[] = $davProps['calendarOrder'];
+					}
+					else {
+						$propsToSet[$davProps['calendarOrder']] = (int) (string) $propertyValue;
+					}
+					break;
+
+				case '{urn:ietf:params:xml:ns:caldav}schedule-calendar-transp':
+					$value = $propertyValue;
+					if ($value instanceof ScheduleCalendarTransp) {
+						$value = $value->getValue();
+					}
+					if ($value === null) {
+						$propsToDelete[] = $davProps['calendarTransp'];
+					}
+					else {
+						$propsToSet[$davProps['calendarTransp']] = ($value === 'transparent');
+					}
+					break;
+
+				default:
+					// Ignore properties handled elsewhere (e.g. supported-calendar-component-set
+					// in createCalendar). updateCalendar funnels properties via PropPatch::handle(),
+					// so only registered ones ever reach this path.
+					break;
+			}
+		}
+
+		return $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete);
 	}
 
 	/**
