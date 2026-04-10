@@ -104,7 +104,12 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		}
 
 		// TODO Add displayname
-		return $this->gDavBackend->CreateFolder($principalUri, $calendarUri, $containerClass, "");
+		$folderId = $this->gDavBackend->CreateFolder($principalUri, $calendarUri, $containerClass, "");
+
+		// Apply Apple/DAV metadata submitted during MKCALENDAR (color, order, displayname, transp).
+		$this->applyCalendarProperties($folderId, $properties);
+
+		return $folderId;
 	}
 
 	/**
