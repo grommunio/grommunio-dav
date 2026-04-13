@@ -70,8 +70,59 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 * @param string $addressBookId
 	 */
 	public function updateAddressBook($addressBookId, PropPatch $propPatch) {
-		// TODO is our logger able to log this object? It probably needs to be adapted.
-		$this->logger->trace("addressBookId: %s - proppatch: %s", $addressBookId, $propPatch);
+		$this->logger->trace("addressBookId: %s", $addressBookId);
+
+		$supportedProperties = [
+			'{DAV:}displayname',
+			'{urn:ietf:params:xml:ns:carddav}addressbook-description',
+		];
+
+		$propPatch->handle($supportedProperties, function ($mutations) use ($addressBookId) {
+			return $this->applyAddressBookProperties($addressBookId, $mutations);
+		});
+	}
+
+	/**
+	 * Persists PROPPATCH-derived properties on the MAPI folder backing the address book.
+	 *
+	 * @param string $folderId
+	 * @param array  $mutations clark-notation property name => value
+	 *
+	 * @return bool
+	 */
+	private function applyAddressBookProperties($folderId, array $mutations) {
+		if (empty($mutations)) {
+			return true;
+		}
+
+		$propsToSet = [];
+		$propsToDelete = [];
+
+		foreach ($mutations as $propertyName => $propertyValue) {
+			switch ($propertyName) {
+				case '{DAV:}displayname':
+					if ($propertyValue === null || $propertyValue === '') {
+						return false;
+					}
+					$propsToSet[PR_DISPLAY_NAME] = (string) $propertyValue;
+					break;
+
+				case '{urn:ietf:params:xml:ns:carddav}addressbook-description':
+					if ($propertyValue === null) {
+						$propsToDelete[] = PR_COMMENT;
+					}
+					else {
+						$propsToSet[PR_COMMENT] = (string) $propertyValue;
+					}
+					break;
+
+				default:
+					// Unreachable — updateAddressBook funnels only registered props via PropPatch::handle().
+					break;
+			}
+		}
+
+		return $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete);
 	}
 
 	/**
