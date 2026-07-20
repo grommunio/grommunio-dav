@@ -331,16 +331,21 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			}
 
 			/* will this work on tasks? */
-			if (is_array($filter['time-range']) && isset($filter['time-range']['start'], $filter['time-range']['end'])) {
-				$start = $filter['time-range']['start']->getTimestamp();
-				$end = $filter['time-range']['end']->getTimestamp();
+			if (is_array($filter['time-range'])) {
+				if (isset($filter['time-range']['start'])) {
+					$start = $filter['time-range']['start']->getTimestamp();
+				}
+				if (isset($filter['time-range']['end'])) {
+					$end = $filter['time-range']['end']->getTimestamp();
+				}
 			}
 		}
 
 		$objfilters = [];
-		if ($start != null && $end != null) {
-			$objfilters["start"] = $start;
-			$objfilters["end"] = $end;
+		// RFC 4791: both bounds of the time-range are optional, substitute the missing one
+		if ($start !== null || $end !== null) {
+			$objfilters["start"] = $start ?? 0;
+			$objfilters["end"] = $end ?? 253402300799; // 9999-12-31T23:59:59Z
 		}
 		if (!empty($types)) {
 			$objfilters["types"] = $types;
