@@ -609,26 +609,32 @@ class GrommunioDavBackend {
 			if ($extension) {
 				if ($extension == GrommunioCalDavBackend::FILE_EXTENSION) {
 					$this->logger->trace("Try goid %s", $id);
-					$goid = getGoidFromUid($id);
-					$this->logger->trace("Try goid 0x%08X => %s", $properties["goid"], bin2hex($goid));
-					$goid0 = getGoidFromUidZero($id);
+					$goids = [];
+					$goids[] = getGoidFromUid($id);
+					$goids[] = getGoidFromUidZero($id);
 					// Sometimes Thunderbird urlencodes the URI part
-					$goidUrlDecoded = getGoidFromUid(urldecode($id));
-					$this->logger->trace("Try goid 0x%08X => %s (urldecode)", $properties["goid"], bin2hex($goidUrlDecoded));
-					$restriction[] = [RES_OR, [
-						[RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid]],
-						[RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid0]],
-						[RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goidUrlDecoded]],
-					]];
+					if (urldecode($id) !== $id) {
+						$goids[] = getGoidFromUid(urldecode($id));
+						$goids[] = getGoidFromUidZero(urldecode($id));
+					}
 					// In some cases Thunderbird replaces "@"-sign in UID with an underscore "_" in the URI part, e.g.:
 					// PUT 12345678-ABCD_bahn.de.ics
 					// UID:12345678-ABCD@bahn.de
 					$underscoreCnt = substr_count($id, '_');
 					if ($underscoreCnt === 1) {
-						$goidUnderscore = getGoidFromUid(str_replace('_', '@', $id));
-						$this->logger->trace("Try goid 0x%08X => %s (replaced '_' with '@')", $properties["goid"], bin2hex($goidUnderscore));
-						$restriction[0][RES_OR][] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goidUnderscore]];
+						$goids[] = getGoidFromUid(str_replace('_', '@', $id));
+						$goids[] = getGoidFromUidZero(str_replace('_', '@', $id));
 					}
+					$goidRestrictions = [];
+					foreach ($goids as $goid) {
+						// an empty value would match unrelated messages carrying an empty goid property
+						if (!is_string($goid) || $goid === '') {
+							continue;
+						}
+						$this->logger->trace("Try goid 0x%08X => %s", $properties["goid"], bin2hex($goid));
+						$goidRestrictions[] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid]];
+					}
+					$restriction[] = [RES_OR, $goidRestrictions];
 				}
 				elseif ($extension == GrommunioCardDavBackend::FILE_EXTENSION) {
 					$this->logger->trace("Try vcarduid %s", $id);
