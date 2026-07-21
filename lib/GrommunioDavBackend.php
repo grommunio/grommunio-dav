@@ -666,6 +666,22 @@ class GrommunioDavBackend {
 				$entryid = mapi_msgstore_entryidfromsourcekey($this->GetStoreById($arr[0]), hex2bin($arr[1]), hex2bin($sk));
 			}
 		}
+		if (!$entryid && $extension == GrommunioCalDavBackend::FILE_EXTENSION) {
+			// last resort: derive the uid from each message's goid like GetObjects()
+			// does, stored goids may deviate from the reconstructed ones
+			$this->logger->debug("Try scanning the folder for a message with a goid matching uid '%s'", $id);
+			$properties = $this->GetCustomProperties($folderId);
+			$table = mapi_folder_getcontentstable($mapifolder, MAPI_DEFERRED_ERRORS);
+			$rows = mapi_table_queryallrows($table, [PR_ENTRYID, $properties['goid']]);
+			foreach ($rows as $row) {
+				if (isset($row[$properties['goid']]) && getUidFromGoid($row[$properties['goid']]) === $id) {
+					$this->logger->debug("Found message by goid folder scan");
+					$entryid = $row[PR_ENTRYID];
+
+					break;
+				}
+			}
+		}
 		if ($entryid) {
 			$mapimessage = mapi_msgstore_openentry($this->GetStoreById($folderId), $entryid);
 			if (!$mapimessage) {
