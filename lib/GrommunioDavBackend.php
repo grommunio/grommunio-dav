@@ -3,7 +3,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 - 2025 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2026 grommunio GmbH
  *
  * grommunio DAV backend class which handles grommunio related activities.
  */
@@ -675,8 +675,8 @@ class GrommunioDavBackend {
 			$rows = mapi_table_queryallrows($table, [PR_ENTRYID, $properties['goid']]);
 			foreach ($rows as $row) {
 				if (isset($row[$properties['goid']]) && getUidFromGoid($row[$properties['goid']]) === $id) {
-					$this->logger->debug("Found message by goid folder scan");
 					$entryid = $row[PR_ENTRYID];
+					$this->logger->debug("Found message by goid folder scan, entry id: %s", bin2hex($entryid));
 
 					break;
 				}
@@ -978,7 +978,7 @@ class GrommunioDavBackend {
 	 * @param string $folderId composite id in form principal:sourcekey
 	 *
 	 * @return string
-	*/
+	 */
 	public function GetCurrentSyncToken($folderId) {
 		$arr = explode(':', $folderId, 2);
 		if (count($arr) < 2 || $arr[1] === '') {
