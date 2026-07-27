@@ -348,7 +348,7 @@ class GalAddressBook implements IDirectory, IProperties, IACL, ISyncCollection, 
 
 			$vcf = mapi_mapitovcf($session, $ab, $abEntry, []);
 			if (!$vcf) {
-				$this->logger->debug("GalAddressBook: skipping entry %s, vCard conversion failed", $entryidHex);
+				$this->logger->debug("GalAddressBook: skipping entry %s, vCard conversion failed (0x%08X) %s", $entryidHex, mapi_last_hresult(), var_export($vcf, 1));
 
 				continue;
 			}
