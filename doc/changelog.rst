@@ -1,3 +1,28 @@
+grommunio-dav 1.7 (2025-07-27)
+==============================
+
+Fixes:
+
+* Stalled sync of some Apple devices
+* Calendar metadata (color/order/displayname) from MKCALENDAR not applied
+* Empty goid values resulted in wrong objects on lookup
+
+Enhancements:
+
+* Use primary_email from nsp_getuserinfo in principals
+* Add logger to the PrincipalsBackend
+* Read-only GAL
+* Add named property constants for DAV folder metadata
+* Add folder-level property read/write helpers
+* Return composite id from CreateFolder
+* Expose schedule-calendar-transp per calendar folder
+* Addressbook-description on folder PROPFIND
+* Implement updateCalendar to persist PROPPATCH mutations
+* Rename address books and edit their description
+* Improve handling for mismatching UID and objectUri
+* Support open-ended time-range in calendar-query
+* Improve goid resolving
+
 grommunio-dav 1.6 (2025-12-16)
 ==============================
 
