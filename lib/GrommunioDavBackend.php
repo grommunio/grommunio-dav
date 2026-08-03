@@ -146,7 +146,31 @@ class GrommunioDavBackend {
 		}
 		$rows = mapi_table_queryallrows($hierarchy, $queryCols);
 
-		$rootprops = mapi_getprops($rootfolder, [PR_IPM_CONTACT_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID]);
+		$rootprops = mapi_getprops($rootfolder, [PR_IPM_CONTACT_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID, PR_IPM_TASK_ENTRYID]);
+
+		// Try to open the folders directly if there are no rows in hierarchy table,
+		// possibly top of the information store has no foldervisible permissions
+		if (mapi_table_getrowcount($hierarchy) === 0) {
+			$this->logger->debug("mapi_folder_gethierarchytable returned 0 entries, try opening folders directly");
+			$rows = [];
+			foreach ($classes as $class) {
+				$folderEntryId = match($class) {
+					'IPF.Contact' => $rootprops[PR_IPM_CONTACT_ENTRYID] ?? null,
+					'IPF.Appointment' => $rootprops[PR_IPM_APPOINTMENT_ENTRYID] ?? null,
+					'IPF.Task' => $rootprops[PR_IPM_TASK_ENTRYID] ?? null,
+					default => null,
+				};
+				if ($folderEntryId !== null) {
+					try {
+						$subtreeFolder = mapi_msgstore_openentry($store, $folderEntryId);
+						$rows[] = mapi_getprops($subtreeFolder, $queryCols);
+					}
+					catch (\Throwable $t) {
+						$this->logger->debug("Error getting folder of class'%s' (%s) - 0x%08X: %s", $class, bin2hex($folderEntryId), mapi_last_hresult(), $t);
+					}
+				}
+			}
+		}
 		foreach ($rows as $row) {
 			if ($row[PR_FOLDER_TYPE] == FOLDER_SEARCH) {
 				continue;
