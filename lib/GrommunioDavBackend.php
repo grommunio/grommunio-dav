@@ -251,6 +251,10 @@ class GrommunioDavBackend {
 			if (in_array($row[PR_CONTAINER_CLASS], ['IPF.Appointment', 'IPF.Task'], true)) {
 				$transp = isset($row[$davProps['calendarTransp']]) && $row[$davProps['calendarTransp']] ? 'transparent' : 'opaque';
 				$folder['{urn:ietf:params:xml:ns:caldav}schedule-calendar-transp'] = new ScheduleCalendarTransp($transp);
+				// clients show the calendar read-only if the folder permissions allow no changes
+				if (isset($row[PR_RIGHTS]) && !($row[PR_RIGHTS] & (ecRightsCreate | ecRightsEditOwned | ecRightsEditAny | ecRightsDeleteOwned | ecRightsDeleteAny | ecRightsFolderAccess))) {
+					$folder['{http://sabredav.org/ns}read-only'] = true;
+				}
 			}
 
 			// ensure default contacts folder is put first, some clients
