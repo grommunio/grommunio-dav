@@ -174,7 +174,7 @@ class GrommunioDavBackend {
 		$davProps = $this->GetFolderDavProperties($store);
 
 		// TODO how to handle hierarchies?
-		$queryCols = [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX, PR_CONTAINER_CLASS, PR_COMMENT, PR_PARENT_ENTRYID];
+		$queryCols = [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX, PR_CONTAINER_CLASS, PR_COMMENT, PR_PARENT_ENTRYID, PR_RIGHTS];
 		foreach ($davProps as $tag) {
 			$queryCols[] = $tag;
 		}
@@ -207,6 +207,10 @@ class GrommunioDavBackend {
 		}
 		foreach ($rows as $row) {
 			if ($row[PR_FOLDER_TYPE] == FOLDER_SEARCH) {
+				continue;
+			}
+			// visible without read permission, e.g. free/busy only
+			if (isset($row[PR_RIGHTS]) && !($row[PR_RIGHTS] & (ecRightsReadAny | ecRightsFolderAccess))) {
 				continue;
 			}
 			$folderId = $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]);
