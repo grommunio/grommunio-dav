@@ -14,6 +14,8 @@ use Sabre\CalDAV\Backend\AbstractBackend;
 use Sabre\CalDAV\Backend\SchedulingSupport;
 use Sabre\CalDAV\Backend\SyncSupport;
 use Sabre\CalDAV\Xml\Property\ScheduleCalendarTransp;
+use Sabre\DAV\Exception\Forbidden;
+use Sabre\DAV\Exception\UnsupportedMediaType;
 use Sabre\DAV\PropPatch;
 use Sabre\VObject\Reader;
 
@@ -544,16 +546,14 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			$this->logger->trace("newics: %s", $ics);
 		}
 
-		$ok = mapi_icaltomapi($session, $store, $ab, $mapimessage, $ics, false);
-		if (!$ok && mapi_last_hresult()) {
-			$this->logger->error("Error updating mapi object, error code: 0x%08X", mapi_last_hresult());
+		if (!mapi_icaltomapi($session, $store, $ab, $mapimessage, $ics, false)) {
+			// gromox fails with MAPI_E_CALL_FAILED on data it cannot convert
+			if (mapi_last_hresult() == MAPI_E_CALL_FAILED) {
+				$this->logger->error("Unable to convert the calendar data");
 
-			return null;
-		}
-		if (!$ok) {
-			$this->logger->error("Error updating mapi object, unknown error");
-
-			return null;
+				throw new UnsupportedMediaType('Unable to convert the calendar data');
+			}
+			$this->gDavBackend->ThrowMapiError('Error updating mapi object');
 		}
 
 		if (stripos($ics, 'BEGIN:VTODO') !== false) {
@@ -570,7 +570,9 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			}
 		}
 
-		mapi_savechanges($mapimessage);
+		if (!mapi_savechanges($mapimessage)) {
+			$this->gDavBackend->ThrowMapiError('Error saving mapi object');
+		}
 		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
 
 		return $props[PR_LAST_MODIFICATION_TIME];
@@ -768,8 +770,14 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		// to delete we need the PR_ENTRYID of the message
 		// TODO move this part to GrommunioDavBackend
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($calendarId, $objectUri, $mapifolder, static::FILE_EXTENSION);
-		$props = mapi_getprops($mapimessage, [PR_ENTRYID]);
-		mapi_folder_deletemessages($mapifolder, [$props[PR_ENTRYID]]);
+		$props = mapi_getprops($mapimessage, [PR_ENTRYID, PR_ACCESS]);
+		// messages the user may not delete are skipped without an error
+		if (isset($props[PR_ACCESS]) && !($props[PR_ACCESS] & MAPI_ACCESS_DELETE)) {
+			throw new Forbidden('Permission denied to delete the object');
+		}
+		if (!mapi_folder_deletemessages($mapifolder, [$props[PR_ENTRYID]])) {
+			$this->gDavBackend->ThrowMapiError('Error deleting mapi object');
+		}
 	}
 
 	/**

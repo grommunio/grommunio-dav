@@ -12,6 +12,8 @@ namespace grommunio\DAV;
 
 use Sabre\CalDAV\Xml\Property\ScheduleCalendarTransp;
 use Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet;
+use Sabre\DAV\Exception as DAVException;
+use Sabre\DAV\Exception\Forbidden;
 
 class GrommunioDavBackend {
 	public const IMPERSONATE_DELIM = '!';
@@ -444,6 +446,13 @@ class GrommunioDavBackend {
 	 */
 	public function CreateObject($folderId, $folder, $objectId) {
 		$mapimessage = mapi_folder_createmessage($folder);
+		if (!$mapimessage) {
+			// gromox answers a missing create permission with MAPI_E_NOT_FOUND
+			if (mapi_last_hresult() == MAPI_E_NOT_FOUND) {
+				throw new Forbidden('Permission denied to create the object');
+			}
+			$this->ThrowMapiError('Unable to create object');
+		}
 		// we save the objectId in PROP_APPTTSREF so we find it by this id
 		$properties = $this->GetCustomProperties($folderId);
 		// FIXME: uid for contacts
@@ -451,6 +460,23 @@ class GrommunioDavBackend {
 		mapi_setprops($mapimessage, [$properties['goid'] => $goid]);
 
 		return $mapimessage;
+	}
+
+	/**
+	 * Throws the DAV exception for the last MAPI error.
+	 *
+	 * @param string $message
+	 *
+	 * @throws DAVException
+	 */
+	public function ThrowMapiError($message) {
+		$hresult = mapi_last_hresult();
+		$this->logger->error("%s: 0x%08X", $message, $hresult);
+		if ($hresult == MAPI_E_NO_ACCESS) {
+			throw new Forbidden($message);
+		}
+
+		throw new DAVException($message);
 	}
 
 	/**
