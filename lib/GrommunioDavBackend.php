@@ -839,13 +839,14 @@ class GrommunioDavBackend {
 	 *
 	 * @return mixed
 	 */
-	protected function GetCustomProperties($id) {
+	public function GetCustomProperties($id) {
 		if (!isset($this->customprops[$id])) {
 			$this->logger->trace("Fetching properties id:%s", $id);
 			$store = $this->GetStoreById($id);
 			$properties = getPropIdsFromStrings($store, [
 				"goid" => "PT_BINARY:PSETID_Meeting:" . PidLidGlobalObjectId,
 				"vcarduid" => MapiProps::PROP_VCARDUID,
+				"private" => "PT_BOOLEAN:PSETID_Common:" . PidLidPrivate,
 			]);
 			$this->customprops[$id] = $properties;
 		}

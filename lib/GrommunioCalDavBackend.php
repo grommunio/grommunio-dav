@@ -556,6 +556,11 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			$this->gDavBackend->ThrowMapiError('Error updating mapi object');
 		}
 
+		// CLASS only sets PR_SENSITIVITY, grommunio-web shows the private flag from PidLidPrivate
+		$properties = $this->gDavBackend->GetCustomProperties($calendarId);
+		$props = mapi_getprops($mapimessage, [PR_SENSITIVITY]);
+		mapi_setprops($mapimessage, [$properties['private'] => ($props[PR_SENSITIVITY] ?? SENSITIVITY_NONE) >= SENSITIVITY_PRIVATE]);
+
 		if (stripos($ics, 'BEGIN:VTODO') !== false) {
 			$this->applyVtodoSpecificProperties($store, $mapimessage, $ics);
 		}
