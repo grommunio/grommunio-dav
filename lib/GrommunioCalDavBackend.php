@@ -36,6 +36,9 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	public const MESSAGE_CLASSES = ['IPM.Appointment', 'IPM.Task'];
 	public const CONTAINER_CLASS = 'IPF.Appointment';
 	public const CONTAINER_CLASSES = ['IPF.Appointment', 'IPF.Task'];
+	// kept when masking private objects
+	private const MASK_KEEP_PROPERTIES = ['UID', 'DTSTAMP', 'CREATED', 'LAST-MODIFIED', 'SEQUENCE', 'DTSTART', 'DTEND', 'DUE', 'DURATION',
+		'RRULE', 'RDATE', 'EXDATE', 'RECURRENCE-ID', 'TRANSP', 'STATUS', 'CLASS', 'X-MICROSOFT-CDO-BUSYSTATUS', 'X-MICROSOFT-CDO-ALLDAYEVENT'];
 
 	/**
 	 * Constructor.
@@ -409,12 +412,17 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			$ics = null;
 		}
 
-		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
+		$properties = $this->gDavBackend->GetCustomProperties($calendarId);
+		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME, PR_SENSITIVITY, $properties['private']]);
+		$hidden = $this->gDavBackend->IsPrivateHidden($calendarId, $props);
+		if ($ics !== null && $hidden) {
+			$ics = $this->maskPrivateData($ics);
+		}
 
 		$r = [
 			'id' => $realId,
 			'uri' => $realId . static::FILE_EXTENSION,
-			'etag' => '"' . $props[PR_LAST_MODIFICATION_TIME] . '"',
+			'etag' => '"' . $props[PR_LAST_MODIFICATION_TIME] . ($hidden ? '-p' : '') . '"',
 			'lastmodified' => $props[PR_LAST_MODIFICATION_TIME],
 			'calendarid' => $calendarId,
 			'size' => ($ics !== null ? strlen($ics) : 0),
@@ -481,6 +489,11 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 
 		$folder = $this->gDavBackend->GetMapiFolder($calendarId);
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($calendarId, $objectUri, null, static::FILE_EXTENSION);
+		// the client only knows the masked data
+		$properties = $this->gDavBackend->GetCustomProperties($calendarId);
+		if ($this->gDavBackend->IsPrivateHidden($calendarId, mapi_getprops($mapimessage, [PR_SENSITIVITY, $properties['private']]))) {
+			throw new Forbidden('Permission denied to modify the private object');
+		}
 		$retval = $this->setData($calendarId, $mapimessage, $calendarData);
 		if (!$retval) {
 			return null;
@@ -668,6 +681,38 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	}
 
 	/**
+	 * Reduces private events and tasks to their scheduling data.
+	 *
+	 * @param string $ics
+	 *
+	 * @return null|string
+	 */
+	private function maskPrivateData($ics) {
+		try {
+			$vcalendar = Reader::read($ics);
+		}
+		catch (\Throwable $throwable) {
+			$this->logger->error("Unable to parse private object: %s", $throwable->getMessage());
+
+			return null;
+		}
+
+		foreach ($vcalendar->getComponents() as $component) {
+			if ($component->name !== 'VEVENT' && $component->name !== 'VTODO') {
+				continue;
+			}
+			foreach ($component->children() as $child) {
+				if (!in_array($child->name, self::MASK_KEEP_PROPERTIES, true)) {
+					$component->remove($child);
+				}
+			}
+			$component->SUMMARY = 'Private';
+		}
+
+		return $vcalendar->serialize();
+	}
+
+	/**
 	 * Converts a VObject datetime property into a UTC timestamp suitable for PT_SYSTIME fields.
 	 *
 	 * @param \Sabre\VObject\Property $property
@@ -775,10 +820,14 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		// to delete we need the PR_ENTRYID of the message
 		// TODO move this part to GrommunioDavBackend
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($calendarId, $objectUri, $mapifolder, static::FILE_EXTENSION);
-		$props = mapi_getprops($mapimessage, [PR_ENTRYID, PR_ACCESS]);
+		$properties = $this->gDavBackend->GetCustomProperties($calendarId);
+		$props = mapi_getprops($mapimessage, [PR_ENTRYID, PR_ACCESS, PR_SENSITIVITY, $properties['private']]);
 		// messages the user may not delete are skipped without an error
 		if (isset($props[PR_ACCESS]) && !($props[PR_ACCESS] & MAPI_ACCESS_DELETE)) {
 			throw new Forbidden('Permission denied to delete the object');
+		}
+		if ($this->gDavBackend->IsPrivateHidden($calendarId, $props)) {
+			throw new Forbidden('Permission denied to delete the private object');
 		}
 		if (!mapi_folder_deletemessages($mapifolder, [$props[PR_ENTRYID]])) {
 			$this->gDavBackend->ThrowMapiError('Error deleting mapi object');

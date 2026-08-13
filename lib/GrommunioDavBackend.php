@@ -23,6 +23,7 @@ class GrommunioDavBackend {
 	protected $user;
 	protected $authUser;
 	protected $customprops;
+	protected $seeprivate;
 	protected $syncstate;
 
 	/**
@@ -410,7 +411,7 @@ class GrommunioDavBackend {
 			mapi_table_restrict($table, $restriction);
 		}
 
-		$rows = mapi_table_queryallrows($table, [PR_SOURCE_KEY, PR_LAST_MODIFICATION_TIME, PR_MESSAGE_SIZE, $properties['goid']]);
+		$rows = mapi_table_queryallrows($table, [PR_SOURCE_KEY, PR_LAST_MODIFICATION_TIME, PR_MESSAGE_SIZE, $properties['goid'], PR_SENSITIVITY, $properties['private']]);
 
 		$results = [];
 		foreach ($rows as $row) {
@@ -422,11 +423,13 @@ class GrommunioDavBackend {
 				$realId = bin2hex($row[PR_SOURCE_KEY]);
 			}
 			$realId = rawurlencode($realId);
+			// masked private objects get an ETag of their own
+			$hidden = $fileExtension == GrommunioCalDavBackend::FILE_EXTENSION && $this->IsPrivateHidden($id, $row);
 
 			$result = [
 				'id' => $realId,
 				'uri' => $realId . $fileExtension,
-				'etag' => '"' . $row[PR_LAST_MODIFICATION_TIME] . '"',
+				'etag' => '"' . $row[PR_LAST_MODIFICATION_TIME] . ($hidden ? '-p' : '') . '"',
 				'lastmodified' => $row[PR_LAST_MODIFICATION_TIME],
 				'size' => $row[PR_MESSAGE_SIZE], // only approximation
 			];
@@ -852,6 +855,59 @@ class GrommunioDavBackend {
 		}
 
 		return $this->customprops[$id];
+	}
+
+	/**
+	 * Checks whether a private message is hidden from the user. As in
+	 * grommunio-web, private items of other stores are only visible to
+	 * delegates allowed to see them.
+	 *
+	 * @param string $folderId
+	 * @param array  $props    message properties incl. PR_SENSITIVITY and the private property
+	 *
+	 * @return bool
+	 */
+	public function IsPrivateHidden($folderId, $props) {
+		$private = $this->GetCustomProperties($folderId)['private'];
+		if (empty($props[$private]) && ($props[PR_SENSITIVITY] ?? SENSITIVITY_NONE) != SENSITIVITY_PRIVATE) {
+			return false;
+		}
+		$storeId = explode(':', $folderId)[0];
+		if (!isset($this->seeprivate[$storeId])) {
+			$this->seeprivate[$storeId] = $this->canSeePrivate($this->GetStoreById($folderId));
+		}
+
+		return !$this->seeprivate[$storeId];
+	}
+
+	/**
+	 * Checks the delegate flags of the store owner for the user.
+	 *
+	 * @param mixed $store
+	 *
+	 * @return bool
+	 */
+	private function canSeePrivate($store) {
+		$props = mapi_getprops($store, [PR_MDB_PROVIDER, PR_USER_ENTRYID]);
+		if (($props[PR_MDB_PROVIDER] ?? '') !== ZARAFA_STORE_DELEGATE_GUID) {
+			return true;
+		}
+
+		// might not be accessible, e.g. without permissions on the freebusy data
+		try {
+			$fbmessage = \FreeBusy::getLocalFreeBusyMessage($store);
+		}
+		catch (\Throwable $t) {
+			$this->logger->debug("Unable to open the local freebusy message: %s", $t->getMessage());
+			$fbmessage = false;
+		}
+		if (!$fbmessage) {
+			return false;
+		}
+		$fbprops = mapi_getprops($fbmessage, [PR_SCHDINFO_DELEGATE_ENTRYIDS, PR_DELEGATE_FLAGS]);
+		$index = array_search($props[PR_USER_ENTRYID] ?? null, $fbprops[PR_SCHDINFO_DELEGATE_ENTRYIDS] ?? [], true);
+
+		return $index !== false && ($fbprops[PR_DELEGATE_FLAGS][$index] ?? 0) == 1;
 	}
 
 	/**
