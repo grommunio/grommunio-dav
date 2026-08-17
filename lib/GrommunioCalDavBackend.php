@@ -751,11 +751,11 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	}
 
 	/**
-	 * Reduces private events and tasks to their scheduling data.
+	 * Reduces private events, tasks and notes to their scheduling data.
 	 *
 	 * @param string $ics
 	 *
-	 * @return null|string
+	 * @return null|string null if the data cannot be parsed
 	 */
 	private function maskPrivateData($ics) {
 		try {
@@ -768,7 +768,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		}
 
 		foreach ($vcalendar->getComponents() as $component) {
-			if ($component->name !== 'VEVENT' && $component->name !== 'VTODO') {
+			if (!in_array($component->name, ['VEVENT', 'VTODO', 'VJOURNAL'], true)) {
 				continue;
 			}
 			foreach ($component->children() as $child) {
