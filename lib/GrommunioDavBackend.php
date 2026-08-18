@@ -995,15 +995,17 @@ class GrommunioDavBackend {
 
 		// The last parameter in mapi_exportchanges_config is buffer size for mapi_exportchanges_synchronize - how many
 		// changes will be processed in its call. Setting it to MAX_SYNC_ITEMS won't export more items than is set in
-		// the config. If there are more changes than MAX_SYNC_ITEMS the client will eventually catch up and sync
-		// the rest on the subsequent sync request(s).
+		// the config. If there are more changes than MAX_SYNC_ITEMS the result is marked as truncated, the client
+		// then syncs the rest with the returned token in subsequent requests.
 		$bufferSize = ($limit !== null && $limit > 0) ? $limit : MAX_SYNC_ITEMS;
 		mapi_exportchanges_config($exporter, $stream, SYNC_NORMAL | SYNC_UNICODE, $mapiimporter, $restriction, false, false, $bufferSize);
 		$changesCount = mapi_exportchanges_getchangecount($exporter);
 		$this->logger->debug("Exporter found %d changes, buffer size for mapi_exportchanges_synchronize %d", $changesCount, $bufferSize);
+		$truncated = false;
 		while (is_array(mapi_exportchanges_synchronize($exporter))) {
 			if ($changesCount > $bufferSize) {
 				$this->logger->info("There were too many changes to be exported in this request. Total changes %d, exported %d.", $changesCount, $phpwrapper->Total());
+				$truncated = true;
 
 				break;
 			}
@@ -1035,6 +1037,7 @@ class GrommunioDavBackend {
 			"added" => $phpwrapper->GetAdded(),
 			"modified" => $phpwrapper->GetModified(),
 			"deleted" => $phpwrapper->GetDeleted(),
+			"result_truncated" => $truncated,
 		];
 
 		$this->logger->trace("Returning %s", $result);
