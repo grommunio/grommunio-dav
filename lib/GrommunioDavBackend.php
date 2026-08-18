@@ -1024,7 +1024,9 @@ class GrommunioDavBackend {
 			}
 		}
 
-		$newtoken = ($phpwrapper->Total() > 0) ? uniqid() : $syncToken;
+		// an initial sync gets a token of its own, also without any objects
+		$initial = $syncToken == null || $syncToken == '0000000000';
+		$newtoken = ($phpwrapper->Total() > 0 || $initial) ? uniqid() : $syncToken;
 
 		$this->syncstate->setState($arr[1], $newtoken, bin2hex($state));
 
