@@ -830,86 +830,10 @@ class GrommunioDavBackend {
 	 *
 	 * @return array
 	 */
-	// TODO getting named properties
 	public function GetCalendarRestriction($store, $start, $end) {
-		$props = MapiProps::GetAppointmentProperties();
-		$props = getPropIdsFromStrings($store, $props);
+		$props = getPropIdsFromStrings($store, MapiProps::GetAppointmentProperties());
 
-		return [RES_OR,
-			[
-				// OR
-				// item.end > window.start && item.start < window.end
-				[RES_AND,
-					[
-						[RES_PROPERTY,
-							[RELOP => RELOP_LE,
-								ULPROPTAG => $props["starttime"],
-								VALUE => $end,
-							],
-						],
-						[RES_PROPERTY,
-							[RELOP => RELOP_GE,
-								ULPROPTAG => $props["endtime"],
-								VALUE => $start,
-							],
-						],
-					],
-				],
-				// OR
-				[RES_OR,
-					[
-						// OR
-						// (EXIST(recurrence_enddate_property) && item[isRecurring] == true && recurrence_enddate_property >= start)
-						[RES_AND,
-							[
-								[RES_EXIST,
-									[ULPROPTAG => $props["recurrenceend"],
-									],
-								],
-								[RES_PROPERTY,
-									[RELOP => RELOP_EQ,
-										ULPROPTAG => $props["isrecurring"],
-										VALUE => true,
-									],
-								],
-								[RES_PROPERTY,
-									[RELOP => RELOP_GE,
-										ULPROPTAG => $props["recurrenceend"],
-										VALUE => $start,
-									],
-								],
-							],
-						],
-						// OR
-						// (!EXIST(recurrence_enddate_property) && item[isRecurring] == true && item[start] <= end)
-						[RES_AND,
-							[
-								[RES_NOT,
-									[
-										[RES_EXIST,
-											[ULPROPTAG => $props["recurrenceend"],
-											],
-										],
-									],
-								],
-								[RES_PROPERTY,
-									[RELOP => RELOP_LE,
-										ULPROPTAG => $props["starttime"],
-										VALUE => $end,
-									],
-								],
-								[RES_PROPERTY,
-									[RELOP => RELOP_EQ,
-										ULPROPTAG => $props["isrecurring"],
-										VALUE => true,
-									],
-								],
-							],
-						],
-					],
-				], // EXISTS OR
-			],
-		];        // global OR
+		return getCalendarRestriction($props, $start, $end);
 	}
 
 	/**
