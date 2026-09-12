@@ -70,7 +70,7 @@ class MapiProps {
 	 *
 	 * @return array
 	 */
-	public static function GetDefaultAppoinmentProperties() {
+	public static function GetDefaultAppointmentProperties() {
 		return [
 			"isrecurring" => false,
 			"meetingstatus" => olNonMeeting,
