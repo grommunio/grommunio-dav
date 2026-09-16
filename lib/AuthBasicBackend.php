@@ -3,7 +3,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020-2024 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2026 grommunio GmbH
  *
  * grommunio basic authentication backend class.
  */
@@ -13,14 +13,10 @@ namespace grommunio\DAV;
 use Sabre\DAV\Auth\Backend\AbstractBasic;
 
 class AuthBasicBackend extends AbstractBasic {
-	protected $gDavBackend;
-
 	/**
 	 * Constructor.
 	 */
-	public function __construct(GrommunioDavBackend $gDavBackend) {
-		$this->gDavBackend = $gDavBackend;
-	}
+	public function __construct(protected GrommunioDavBackend $gDavBackend) {}
 
 	/**
 	 * Validates a username and password.
@@ -28,7 +24,7 @@ class AuthBasicBackend extends AbstractBasic {
 	 * This method should return true or false depending on if login
 	 * succeeded.
 	 *
-	 * @see \Sabre\DAV\Auth\Backend\AbstractBasic::validateUserPass()
+	 * @see AbstractBasic::validateUserPass()
 	 *
 	 * @param string $username
 	 * @param string $password
