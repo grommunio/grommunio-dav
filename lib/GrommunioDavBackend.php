@@ -14,10 +14,12 @@ use Sabre\CalDAV\Xml\Property\ScheduleCalendarTransp;
 use Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet;
 
 class GrommunioDavBackend {
+	public const IMPERSONATE_DELIM = '!';
 	private $logger;
 	protected $session;
 	protected $stores;
 	protected $user;
+	protected $authUser;
 	protected $customprops;
 	protected $syncstate;
 
@@ -39,24 +41,43 @@ class GrommunioDavBackend {
 	 */
 	public function Logon($user, $pass) {
 		$this->logger->trace('%s / password', $user);
+		$this->user = $this->authUser = $user;
 
 		$gDavVersion = 'grommunio-dav' . @constant('GDAV_VERSION');
 		$userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'unknown';
-		$this->session = mapi_logon_zarafa($user, $pass, MAPI_SERVER, null, null, 1, $gDavVersion, $userAgent);
+		if (defined('ALLOW_IMPERSONATE') && ALLOW_IMPERSONATE &&
+		    stripos($user, self::IMPERSONATE_DELIM) !== false) {
+			$parts = explode(self::IMPERSONATE_DELIM, $user);
+			if (count($parts) === 2) {
+				[$impersonatedUser, $authUser] = $parts;
+				if ($impersonatedUser !== '' && strpos($authUser, '@') !== false) {
+					$domainPos = strrpos($authUser, '@');
+					$this->authUser = $authUser;
+					$this->user = $impersonatedUser . substr($authUser, $domainPos);
+				}
+			}
+			elseif (count($parts) === 3) {
+				[$impersonatedUser, $impersonatedDomain, $authUser] = $parts;
+				if ($impersonatedUser !== '' && $impersonatedDomain !== '' && strpos($authUser, '@') !== false) {
+					$this->authUser = $authUser;
+					$this->user = $impersonatedUser . '@' . $impersonatedDomain;
+				}
+			}
+		}
+		$this->session = mapi_logon_zarafa($this->authUser, $pass, MAPI_SERVER, null, null, 1, $gDavVersion, $userAgent);
 		if (!$this->session) {
-			$this->logger->info("Auth: ERROR - logon failed for user %s from IP %s", $user, $_SERVER['REMOTE_ADDR']);
+			$this->logger->info("Auth: ERROR - logon failed for user %s (%s) from IP %s", $this->authUser, $this->user, $_SERVER['REMOTE_ADDR']);
 
 			return false;
 		}
 
-		$this->user = $user;
-		$this->logger->debug("Auth: OK - user %s - session %s", $this->user, $this->session);
+		$this->logger->debug("Auth: OK - user %s (auth user: %s) - session %s", $this->user, $this->authUser, $this->session);
 
 		return $this->isGdavEnabled();
 	}
 
 	/**
-	 * Returns the authenticated user.
+	 * Returns the main user.
 	 *
 	 * @return string
 	 */
@@ -64,6 +85,17 @@ class GrommunioDavBackend {
 		$this->logger->trace($this->user);
 
 		return $this->user;
+	}
+
+	/**
+	 * Returns the authenticated user.
+	 *
+	 * @return string
+	 */
+	public function GetAuthUser() {
+		$this->logger->trace($this->authUser);
+
+		return $this->authUser;
 	}
 
 	/**
@@ -469,7 +501,7 @@ class GrommunioDavBackend {
 		}
 
 		/* user's own store or public store */
-		if ($username == $this->GetUser() && $defaultstore != null) {
+		if ($username == $this->GetAuthUser() && $defaultstore != null) {
 			return mapi_openmsgstore($this->session, $defaultstore);
 		}
 		if ($username == 'public' && $publicstore != null) {
