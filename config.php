@@ -3,7 +3,7 @@
 /*
  * SPDX-License-Identifier: AGPL-3.0-only
  * SPDX-FileCopyrightText: Copyright 2016 - 2018 Kopano b.v.
- * SPDX-FileCopyrightText: Copyright 2020 grommunio GmbH
+ * SPDX-FileCopyrightText: Copyright 2020 - 2026 grommunio GmbH
  *
  * Configuration file for GrommunioDAV.
  */
@@ -28,5 +28,19 @@ define('DEVELOPER_MODE', true);
 // Global Address List (GAL) as read-only CardDAV address book
 define('GAL_ENABLED', false);
 define('GAL_CACHE_TTL', 3600); // seconds
+
+/*
+ * Allow users with necessary permissions to open a shared folder.
+ * The login name is composed of the user that is authenticating separated with the user to be
+ * impersonated without the domain name with a single '!', like
+ *   impersonated-user!auth-user@domain.com
+ *
+ * When the impersonated and auth user have different domains you need to supply the
+ * domain too and replace the '@' from the impersonated mailbox with a '!' aswell, like
+ *   impersonated-user!test.com!auth-user@domain.com
+ *
+ * The password is of course of the authenticating user.
+ */
+define('ALLOW_IMPERSONATE', false);
 
 // Logging: adjust in glogger.ini
