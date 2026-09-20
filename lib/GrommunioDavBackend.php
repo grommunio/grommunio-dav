@@ -977,7 +977,7 @@ class GrommunioDavBackend {
 	 */
 	private function isGdavEnabled() {
 		$storeProps = mapi_getprops($this->GetStore($this->GetUser()), [PR_EC_ENABLED_FEATURES_L]);
-		if ($storeProps[PR_EC_ENABLED_FEATURES_L] & UP_DAV) {
+		if (($storeProps[PR_EC_ENABLED_FEATURES_L] ?? 0) & UP_DAV) {
 			$this->logger->debug("user %s is enabled for grommunio-dav", $this->user);
 
 			return true;
