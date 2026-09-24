@@ -1,4 +1,20 @@
-grommunio-dav 1.7 (2025-07-27)
+grommunio-dav 1.8 (2026-09-24)
+==============================
+
+Fixes:
+
+* Hierarchy of another user without foldervisible permission on the top of
+  the information store returned no folders
+* Warning for stores without PR_EC_ENABLED_FEATURES_L
+
+Enhancements:
+
+* User impersonation (ALLOW_IMPERSONATE)
+* Calendar restriction built by getCalendarRestriction() from mapi-header-php,
+  which is now required in version 2.3
+* Modern constructor and member initialization
+
+grommunio-dav 1.7 (2026-07-27)
 ==============================
 
 Fixes:
