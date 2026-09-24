@@ -563,7 +563,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		// Set default properties only for VEVENTs. VTODOs use different property sets.
 		if (stripos($ics, 'BEGIN:VEVENT') !== false) {
 			$propList = MapiProps::GetAppointmentProperties();
-			$defaultProps = MapiProps::GetDefaultAppoinmentProperties();
+			$defaultProps = MapiProps::GetDefaultAppointmentProperties();
 			$propsToSet = $this->gDavBackend->GetPropsToSet($calendarId, $mapimessage, $propList, $defaultProps);
 			if (!empty($propsToSet)) {
 				mapi_setprops($mapimessage, $propsToSet);
