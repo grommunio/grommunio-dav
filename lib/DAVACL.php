@@ -10,6 +10,8 @@
 
 namespace grommunio\DAV;
 
+use Sabre\CalDAV\Calendar;
+use Sabre\CalDAV\CalendarObject;
 use Sabre\DAV\INode;
 use Sabre\DAVACL\Plugin;
 
@@ -32,6 +34,15 @@ class DAVACL extends Plugin {
 		if ($node instanceof GalAddressBook || $node instanceof GalCard) {
 			return $node->getACL();
 		}
+		if (($node instanceof Calendar || $node instanceof CalendarObject) && $this->isReadOnly($node)) {
+			return [
+				[
+					'privilege' => '{DAV:}read',
+					'principal' => '{DAV:}authenticated',
+					'protected' => true,
+				],
+			];
+		}
 
 		return [
 			[
@@ -40,5 +51,22 @@ class DAVACL extends Plugin {
 				'protected' => true,
 			],
 		];
+	}
+
+	/**
+	 * Sabre leaves out the write privileges of calendars the backend marks read-only.
+	 *
+	 * @param Calendar|CalendarObject $node
+	 *
+	 * @return bool
+	 */
+	private function isReadOnly($node) {
+		foreach ($node->getACL() as $ace) {
+			if (in_array($ace['privilege'], ['{DAV:}all', '{DAV:}write'], true)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 }

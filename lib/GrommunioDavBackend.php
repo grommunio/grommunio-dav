@@ -12,6 +12,8 @@ namespace grommunio\DAV;
 
 use Sabre\CalDAV\Xml\Property\ScheduleCalendarTransp;
 use Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet;
+use Sabre\DAV\Exception as DAVException;
+use Sabre\DAV\Exception\Forbidden;
 
 class GrommunioDavBackend {
 	public const IMPERSONATE_DELIM = '!';
@@ -21,6 +23,7 @@ class GrommunioDavBackend {
 	protected $user;
 	protected $authUser;
 	protected $customprops;
+	protected $seeprivate;
 	protected $syncstate;
 
 	/**
@@ -172,7 +175,7 @@ class GrommunioDavBackend {
 		$davProps = $this->GetFolderDavProperties($store);
 
 		// TODO how to handle hierarchies?
-		$queryCols = [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX, PR_CONTAINER_CLASS, PR_COMMENT, PR_PARENT_ENTRYID];
+		$queryCols = [PR_DISPLAY_NAME, PR_ENTRYID, PR_SOURCE_KEY, PR_PARENT_SOURCE_KEY, PR_FOLDER_TYPE, PR_LOCAL_COMMIT_TIME_MAX, PR_CONTAINER_CLASS, PR_COMMENT, PR_PARENT_ENTRYID, PR_RIGHTS];
 		foreach ($davProps as $tag) {
 			$queryCols[] = $tag;
 		}
@@ -205,6 +208,10 @@ class GrommunioDavBackend {
 		}
 		foreach ($rows as $row) {
 			if ($row[PR_FOLDER_TYPE] == FOLDER_SEARCH) {
+				continue;
+			}
+			// visible without read permission, e.g. free/busy only
+			if (isset($row[PR_RIGHTS]) && !($row[PR_RIGHTS] & (ecRightsReadAny | ecRightsFolderAccess))) {
 				continue;
 			}
 			$folderId = $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]);
@@ -245,6 +252,10 @@ class GrommunioDavBackend {
 			if (in_array($row[PR_CONTAINER_CLASS], ['IPF.Appointment', 'IPF.Task'], true)) {
 				$transp = isset($row[$davProps['calendarTransp']]) && $row[$davProps['calendarTransp']] ? 'transparent' : 'opaque';
 				$folder['{urn:ietf:params:xml:ns:caldav}schedule-calendar-transp'] = new ScheduleCalendarTransp($transp);
+				// clients show the calendar read-only if the folder permissions allow no changes
+				if (isset($row[PR_RIGHTS]) && !($row[PR_RIGHTS] & (ecRightsCreate | ecRightsEditOwned | ecRightsEditAny | ecRightsDeleteOwned | ecRightsDeleteAny | ecRightsFolderAccess))) {
+					$folder['{http://sabredav.org/ns}read-only'] = true;
+				}
 			}
 
 			// ensure default contacts folder is put first, some clients
@@ -400,7 +411,7 @@ class GrommunioDavBackend {
 			mapi_table_restrict($table, $restriction);
 		}
 
-		$rows = mapi_table_queryallrows($table, [PR_SOURCE_KEY, PR_LAST_MODIFICATION_TIME, PR_MESSAGE_SIZE, $properties['goid']]);
+		$rows = mapi_table_queryallrows($table, [PR_SOURCE_KEY, PR_LAST_MODIFICATION_TIME, PR_MESSAGE_SIZE, $properties['goid'], PR_SENSITIVITY, $properties['private']]);
 
 		$results = [];
 		foreach ($rows as $row) {
@@ -412,11 +423,13 @@ class GrommunioDavBackend {
 				$realId = bin2hex($row[PR_SOURCE_KEY]);
 			}
 			$realId = rawurlencode($realId);
+			// masked private objects get an ETag of their own
+			$hidden = $fileExtension == GrommunioCalDavBackend::FILE_EXTENSION && $this->IsPrivateHidden($id, $row);
 
 			$result = [
 				'id' => $realId,
 				'uri' => $realId . $fileExtension,
-				'etag' => '"' . $row[PR_LAST_MODIFICATION_TIME] . '"',
+				'etag' => '"' . $row[PR_LAST_MODIFICATION_TIME] . ($hidden ? '-p' : '') . '"',
 				'lastmodified' => $row[PR_LAST_MODIFICATION_TIME],
 				'size' => $row[PR_MESSAGE_SIZE], // only approximation
 			];
@@ -444,6 +457,13 @@ class GrommunioDavBackend {
 	 */
 	public function CreateObject($folderId, $folder, $objectId) {
 		$mapimessage = mapi_folder_createmessage($folder);
+		if (!$mapimessage) {
+			// gromox answers a missing create permission with MAPI_E_NOT_FOUND
+			if (mapi_last_hresult() == MAPI_E_NOT_FOUND) {
+				throw new Forbidden('Permission denied to create the object');
+			}
+			$this->ThrowMapiError('Unable to create object');
+		}
 		// we save the objectId in PROP_APPTTSREF so we find it by this id
 		$properties = $this->GetCustomProperties($folderId);
 		// FIXME: uid for contacts
@@ -451,6 +471,23 @@ class GrommunioDavBackend {
 		mapi_setprops($mapimessage, [$properties['goid'] => $goid]);
 
 		return $mapimessage;
+	}
+
+	/**
+	 * Throws the DAV exception for the last MAPI error.
+	 *
+	 * @param string $message
+	 *
+	 * @throws DAVException
+	 */
+	public function ThrowMapiError($message) {
+		$hresult = mapi_last_hresult();
+		$this->logger->error("%s: 0x%08X", $message, $hresult);
+		if ($hresult == MAPI_E_NO_ACCESS) {
+			throw new Forbidden($message);
+		}
+
+		throw new DAVException($message);
 	}
 
 	/**
@@ -805,18 +842,72 @@ class GrommunioDavBackend {
 	 *
 	 * @return mixed
 	 */
-	protected function GetCustomProperties($id) {
+	public function GetCustomProperties($id) {
 		if (!isset($this->customprops[$id])) {
 			$this->logger->trace("Fetching properties id:%s", $id);
 			$store = $this->GetStoreById($id);
 			$properties = getPropIdsFromStrings($store, [
 				"goid" => "PT_BINARY:PSETID_Meeting:" . PidLidGlobalObjectId,
 				"vcarduid" => MapiProps::PROP_VCARDUID,
+				"private" => "PT_BOOLEAN:PSETID_Common:" . PidLidPrivate,
 			]);
 			$this->customprops[$id] = $properties;
 		}
 
 		return $this->customprops[$id];
+	}
+
+	/**
+	 * Checks whether a private message is hidden from the user. As in
+	 * grommunio-web, private items of other stores are only visible to
+	 * delegates allowed to see them.
+	 *
+	 * @param string $folderId
+	 * @param array  $props    message properties incl. PR_SENSITIVITY and the private property
+	 *
+	 * @return bool
+	 */
+	public function IsPrivateHidden($folderId, $props) {
+		$private = $this->GetCustomProperties($folderId)['private'];
+		if (empty($props[$private]) && ($props[PR_SENSITIVITY] ?? SENSITIVITY_NONE) != SENSITIVITY_PRIVATE) {
+			return false;
+		}
+		$storeId = explode(':', $folderId)[0];
+		if (!isset($this->seeprivate[$storeId])) {
+			$this->seeprivate[$storeId] = $this->canSeePrivate($this->GetStoreById($folderId));
+		}
+
+		return !$this->seeprivate[$storeId];
+	}
+
+	/**
+	 * Checks the delegate flags of the store owner for the user.
+	 *
+	 * @param mixed $store
+	 *
+	 * @return bool
+	 */
+	private function canSeePrivate($store) {
+		$props = mapi_getprops($store, [PR_MDB_PROVIDER, PR_USER_ENTRYID]);
+		if (($props[PR_MDB_PROVIDER] ?? '') !== ZARAFA_STORE_DELEGATE_GUID) {
+			return true;
+		}
+
+		// might not be accessible, e.g. without permissions on the freebusy data
+		try {
+			$fbmessage = \FreeBusy::getLocalFreeBusyMessage($store);
+		}
+		catch (\Throwable $t) {
+			$this->logger->debug("Unable to open the local freebusy message: %s", $t->getMessage());
+			$fbmessage = false;
+		}
+		if (!$fbmessage) {
+			return false;
+		}
+		$fbprops = mapi_getprops($fbmessage, [PR_SCHDINFO_DELEGATE_ENTRYIDS, PR_DELEGATE_FLAGS]);
+		$index = array_search($props[PR_USER_ENTRYID] ?? null, $fbprops[PR_SCHDINFO_DELEGATE_ENTRYIDS] ?? [], true);
+
+		return $index !== false && ($fbprops[PR_DELEGATE_FLAGS][$index] ?? 0) == 1;
 	}
 
 	/**
