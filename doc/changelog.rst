@@ -1,3 +1,21 @@
+grommunio-dav 1.8.x (dev)
+=========================
+
+Fixes:
+
+* Hide private elements and tasks for others except delegates. Non-delegates
+  only see schedule info (no details)
+* Evaluate PidLidPrivate for private appointments (not only PR_SENSITIVITY)
+
+Enhancements:
+
+* Calendars without write permissions are now properly offered read-only to
+  clients
+* Calendars without at least read permissions are not listed / made visible
+* Respond appropriately to MAPI errors (permissions, journal, etc.) on
+  PUT/DELETE with 201/204 for invalid access and 415 for conversion errors
+  which allows clients to deal with issues instead of silently "ignoring"
+
 grommunio-dav 1.8 (2026-09-24)
 ==============================
 
