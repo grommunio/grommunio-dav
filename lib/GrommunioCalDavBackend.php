@@ -583,6 +583,10 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			$ics = null;
 		}
 
+		if ($ics !== null) {
+			$ics = $this->setOwnerPartstat($calendarId, $mapimessage, $ics);
+		}
+
 		$properties = $this->gDavBackend->GetCustomProperties($calendarId);
 		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME, PR_SENSITIVITY, $properties['private']]);
 		$hidden = $this->gDavBackend->IsPrivateHidden($calendarId, $props);
@@ -740,6 +744,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			if (!empty($propsToSet)) {
 				mapi_setprops($mapimessage, $propsToSet);
 			}
+			$this->setMeetingOwnerProps($calendarId, $mapimessage);
 		}
 
 		if (!mapi_savechanges($mapimessage)) {
@@ -807,6 +812,112 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		}
 
 		return $changed ? $vcalendar->serialize() : $ics;
+	}
+
+	/**
+	 * Marks a meeting as organized by or received by the owner of the calendar,
+	 * the iCalendar data does not tell which copy it is.
+	 *
+	 * @param string $calendarId
+	 * @param mixed  $mapimessage
+	 */
+	private function setMeetingOwnerProps($calendarId, $mapimessage) {
+		$properties = $this->getMeetingProperties($calendarId);
+		$props = mapi_getprops($mapimessage, [$properties['meetingstatus'], PR_SENT_REPRESENTING_SMTP_ADDRESS, PR_SENT_REPRESENTING_EMAIL_ADDRESS]);
+		if (!(($props[$properties['meetingstatus']] ?? olNonMeeting) & olMeeting)) {
+			return;
+		}
+		$owner = $this->gDavBackend->GetStoreOwnerAddress($calendarId);
+		$organizer = $props[PR_SENT_REPRESENTING_SMTP_ADDRESS] ?? $props[PR_SENT_REPRESENTING_EMAIL_ADDRESS] ?? null;
+		if ($owner === null || $organizer === null) {
+			return;
+		}
+		if (strcasecmp($owner, $organizer) === 0) {
+			mapi_setprops($mapimessage, [
+				$properties['meetingstatus'] => olMeeting,
+				$properties['responsestatus'] => olResponseOrganized,
+			]);
+
+			return;
+		}
+		$response = olResponseNotResponded;
+		$rows = mapi_table_queryallrows(mapi_message_getrecipienttable($mapimessage), [PR_SMTP_ADDRESS, PR_RECIPIENT_TRACKSTATUS]);
+		foreach ($rows as $row) {
+			if (isset($row[PR_SMTP_ADDRESS]) && strcasecmp($row[PR_SMTP_ADDRESS], $owner) === 0 &&
+				in_array($row[PR_RECIPIENT_TRACKSTATUS] ?? 0, [olResponseTentative, olResponseAccepted, olResponseDeclined])) {
+				$response = $row[PR_RECIPIENT_TRACKSTATUS];
+			}
+		}
+		mapi_setprops($mapimessage, [
+			$properties['meetingstatus'] => olMeetingReceived,
+			$properties['responsestatus'] => $response,
+		]);
+	}
+
+	/**
+	 * Sets the PARTSTAT of the calendar owner from the response of the appointment.
+	 * The attendee rows of a received meeting do not carry it.
+	 *
+	 * @param string $calendarId
+	 * @param mixed  $mapimessage
+	 * @param string $ics
+	 *
+	 * @return string
+	 */
+	private function setOwnerPartstat($calendarId, $mapimessage, $ics) {
+		$properties = $this->getMeetingProperties($calendarId);
+		$props = mapi_getprops($mapimessage, [$properties['meetingstatus'], $properties['responsestatus']]);
+		if ((($props[$properties['meetingstatus']] ?? olNonMeeting) & olMeetingReceived) !== olMeetingReceived) {
+			return $ics;
+		}
+		$partstat = match ($props[$properties['responsestatus']] ?? olResponseNone) {
+			olResponseAccepted => 'ACCEPTED',
+			olResponseTentative => 'TENTATIVE',
+			olResponseDeclined => 'DECLINED',
+			default => 'NEEDS-ACTION',
+		};
+		$owner = $this->gDavBackend->GetStoreOwnerAddress($calendarId);
+		if ($owner === null) {
+			return $ics;
+		}
+
+		try {
+			$vcalendar = Reader::read($ics);
+		}
+		catch (\Throwable $throwable) {
+			return $ics;
+		}
+		$changed = false;
+		foreach ($vcalendar->select('VEVENT') as $vevent) {
+			if (isset($vevent->{'RECURRENCE-ID'})) {
+				continue;
+			}
+			foreach ($vevent->select('ATTENDEE') as $attendee) {
+				if (strcasecmp(preg_replace('/^mailto:/i', '', (string) $attendee), $owner) === 0 &&
+					strcasecmp((string) ($attendee['PARTSTAT'] ?? ''), $partstat) !== 0) {
+					$attendee['PARTSTAT'] = $partstat;
+					$changed = true;
+				}
+			}
+		}
+
+		return $changed ? $vcalendar->serialize() : $ics;
+	}
+
+	/**
+	 * Returns the meeting status properties of the store of a calendar.
+	 *
+	 * @param string $calendarId
+	 *
+	 * @return array
+	 */
+	private function getMeetingProperties($calendarId) {
+		$appointmentProperties = MapiProps::GetAppointmentProperties();
+
+		return getPropIdsFromStrings($this->gDavBackend->GetStoreById($calendarId), [
+			'meetingstatus' => $appointmentProperties['meetingstatus'],
+			'responsestatus' => $appointmentProperties['responsestatus'],
+		]);
 	}
 
 	/**

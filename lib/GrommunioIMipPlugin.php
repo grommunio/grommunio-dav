@@ -16,6 +16,8 @@ use Sabre\VObject\ITip\Message;
 class GrommunioIMipPlugin extends IMipPlugin {
 	private $logger;
 	protected $gDavBackend;
+	// attendees already sent a request/cancellation, by uid, sequence and method
+	private $sent = [];
 
 	/**
 	 * Constructor.
@@ -43,6 +45,20 @@ class GrommunioIMipPlugin extends IMipPlugin {
 		}
 
 		$recipient = preg_replace('!^mailto:!i', '', $iTipMessage->recipient);
+		// Sabre schedules every attendee on its own. A request or
+		// cancellation goes out once to all of them instead, so that
+		// everybody sees the other participants.
+		$keep = [strtolower($recipient)];
+		$sentKey = null;
+		if ($iTipMessage->method === 'REQUEST' || $iTipMessage->method === 'CANCEL') {
+			$sentKey = $iTipMessage->method . ':' . $iTipMessage->uid . ':' . $iTipMessage->sequence;
+			if (isset($this->sent[$sentKey][strtolower($recipient)])) {
+				$iTipMessage->scheduleStatus = '1.1;Scheduling message sent via iMip';
+
+				return;
+			}
+			$keep = array_merge($keep, $this->getScheduledAttendees($iTipMessage, $this->sent[$sentKey] ?? []));
+		}
 		$session = $this->gDavBackend->GetSession();
 		$addrbook = $this->gDavBackend->GetAddressBook();
 		$store = $this->gDavBackend->GetStore($this->gDavBackend->GetUser());
@@ -68,7 +84,7 @@ class GrommunioIMipPlugin extends IMipPlugin {
 			if (!isset($recip[PR_SMTP_ADDRESS])) {
 				continue;
 			}
-			if (strcasecmp($recip[PR_SMTP_ADDRESS], $recipient) != 0) {
+			if (!in_array(strtolower($recip[PR_SMTP_ADDRESS]), $keep)) {
 				$removeRecipients[] = $recip;
 			}
 		}
@@ -84,7 +100,40 @@ class GrommunioIMipPlugin extends IMipPlugin {
 		/* save message and send */
 		mapi_savechanges($newmessage);
 		mapi_message_submitmessage($newmessage);
-		$this->logger->info("email sent, recipient: %s", $recipient);
+		$this->logger->info("email sent, recipients: %s", implode(', ', array_unique($keep)));
+		if ($sentKey !== null) {
+			foreach ($keep as $address) {
+				$this->sent[$sentKey][$address] = true;
+			}
+		}
 		$iTipMessage->scheduleStatus = '1.1;Scheduling message sent via iMip';
+	}
+
+	/**
+	 * Returns the attendees of a request Sabre sends a message to, without
+	 * those already handled.
+	 *
+	 * @param array $done addresses as keys
+	 *
+	 * @return array lowercase addresses
+	 */
+	private function getScheduledAttendees(Message $iTipMessage, array $done) {
+		$organizer = strtolower(preg_replace('!^mailto:!i', '', (string) $iTipMessage->sender));
+		$addresses = [];
+		foreach ($iTipMessage->message->getComponents() as $component) {
+			if ($component->name !== 'VEVENT') {
+				continue;
+			}
+			foreach ($component->select('ATTENDEE') as $attendee) {
+				$address = strtolower(preg_replace('!^mailto:!i', '', (string) $attendee));
+				$agent = strtoupper((string) ($attendee['SCHEDULE-AGENT'] ?? 'SERVER'));
+				if ($address === $organizer || $agent !== 'SERVER' || isset($done[$address])) {
+					continue;
+				}
+				$addresses[$address] = true;
+			}
+		}
+
+		return array_keys($addresses);
 	}
 }
