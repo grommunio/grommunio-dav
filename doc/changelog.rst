@@ -15,6 +15,8 @@ Enhancements:
 * Respond appropriately to MAPI errors (permissions, journal, etc.) on
   PUT/DELETE with 201/204 for invalid access and 415 for conversion errors
   which allows clients to deal with issues instead of silently "ignoring"
+* Support for distribution lists (contact groups)
+* Stable UID for contacts without vCard UID
 
 grommunio-dav 1.8 (2026-09-24)
 ==============================

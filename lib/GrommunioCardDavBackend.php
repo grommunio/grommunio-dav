@@ -17,9 +17,10 @@ use Sabre\DAV\PropPatch;
 class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	private $logger;
 	protected $gDavBackend;
+	protected $distList;
 
 	public const FILE_EXTENSION = '.vcf';
-	public const MESSAGE_CLASSES = ['IPM.Contact'];
+	public const MESSAGE_CLASSES = ['IPM.Contact', DistList::MESSAGE_CLASS];
 	public const CONTAINER_CLASS = 'IPF.Contact';
 	public const CONTAINER_CLASSES = ['IPF.Contact'];
 
@@ -29,6 +30,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
 		$this->gDavBackend = $gDavBackend;
 		$this->logger = $glogger;
+		$this->distList = new DistList($gDavBackend, $glogger);
 	}
 
 	/**
@@ -214,8 +216,13 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		$session = $this->gDavBackend->GetSession();
 		$ab = $this->gDavBackend->GetAddressBook();
 
-		$vcf = mapi_mapitovcf($session, $ab, $mapimessage, []);
-		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
+		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME, PR_MESSAGE_CLASS]);
+		if (DistList::IsDistListClass($props[PR_MESSAGE_CLASS] ?? '')) {
+			$vcf = $this->distList->ToVCard($addressBookId, $mapimessage);
+		}
+		else {
+			$vcf = $this->withStableUid($addressBookId, $mapimessage, mapi_mapitovcf($session, $ab, $mapimessage, []));
+		}
 		$r = [
 			'id' => $realId,
 			'uri' => $realId . static::FILE_EXTENSION,
@@ -313,7 +320,17 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		$store = $this->gDavBackend->GetStoreById($addressBookId);
 		$session = $this->gDavBackend->GetSession();
 
-		$ok = mapi_vcftomapi($session, $store, $mapimessage, $vcf);
+		$group = DistList::ParseGroupVCard($vcf);
+		if ($group !== null) {
+			$ok = $this->distList->FromVCard($addressBookId, $mapimessage, $group);
+		}
+		else {
+			$props = mapi_getprops($mapimessage, [PR_MESSAGE_CLASS]);
+			if (DistList::IsDistListClass($props[PR_MESSAGE_CLASS] ?? '')) {
+				$this->distList->DeleteMembers($addressBookId, $mapimessage);
+			}
+			$ok = mapi_vcftomapi($session, $store, $mapimessage, $vcf);
+		}
 		if ($ok) {
 			mapi_savechanges($mapimessage);
 			$props = mapi_getprops($mapimessage);
@@ -322,6 +339,25 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Sets a stable UID for contacts without a vCard UID, mapi_mapitovcf
+	 * generates a random one otherwise.
+	 *
+	 * @param string      $addressBookId
+	 * @param mixed       $mapimessage
+	 * @param bool|string $vcf
+	 *
+	 * @return bool|string
+	 */
+	private function withStableUid($addressBookId, $mapimessage, $vcf) {
+		if (!is_string($vcf) || $this->distList->GetStoredUid($addressBookId, $mapimessage) !== null) {
+			return $vcf;
+		}
+		$uid = addcslashes($this->distList->GetUid($addressBookId, $mapimessage), "\\,;\n");
+
+		return preg_replace_callback('/^UID:[^\r\n]*/m', fn () => 'UID:' . $uid, $vcf, 1);
 	}
 
 	/**
