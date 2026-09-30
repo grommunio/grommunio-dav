@@ -30,12 +30,13 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 
 	private $logger;
 	protected $gDavBackend;
+	protected $notes;
 
 	public const FILE_EXTENSION = '.ics';
-	// Include both appointments and tasks so task lists sync properly.
-	public const MESSAGE_CLASSES = ['IPM.Appointment', 'IPM.Task'];
+	// Include appointments, tasks and notes so all lists sync properly.
+	public const MESSAGE_CLASSES = ['IPM.Appointment', 'IPM.Task', Notes::MESSAGE_CLASS];
 	public const CONTAINER_CLASS = 'IPF.Appointment';
-	public const CONTAINER_CLASSES = ['IPF.Appointment', 'IPF.Task'];
+	public const CONTAINER_CLASSES = ['IPF.Appointment', 'IPF.Task', Notes::CONTAINER_CLASS];
 	// kept when masking private objects
 	private const MASK_KEEP_PROPERTIES = ['UID', 'DTSTAMP', 'CREATED', 'LAST-MODIFIED', 'SEQUENCE', 'DTSTART', 'DTEND', 'DUE', 'DURATION',
 		'RRULE', 'RDATE', 'EXDATE', 'RECURRENCE-ID', 'TRANSP', 'STATUS', 'CLASS', 'X-MICROSOFT-CDO-BUSYSTATUS', 'X-MICROSOFT-CDO-ALLDAYEVENT'];
@@ -46,6 +47,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	public function __construct(GrommunioDavBackend $gDavBackend, GLogger $glogger) {
 		$this->gDavBackend = $gDavBackend;
 		$this->logger = $glogger;
+		$this->notes = new Notes($gDavBackend);
 	}
 
 	/**
@@ -101,6 +103,9 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			if (is_array($components)) {
 				if (in_array('VTODO', $components, true)) {
 					$containerClass = 'IPF.Task';
+				}
+				elseif (in_array('VJOURNAL', $components, true) && !in_array('VEVENT', $components, true)) {
+					$containerClass = Notes::CONTAINER_CLASS;
 				}
 				elseif (in_array('VEVENT', $components, true)) {
 					$containerClass = 'IPF.Appointment';
@@ -334,6 +339,9 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			elseif ($filter['name'] == 'VTODO') {
 				$types[] = 'IPM.Task';
 			}
+			elseif ($filter['name'] == 'VJOURNAL') {
+				$types[] = Notes::MESSAGE_CLASS;
+			}
 
 			/* will this work on tasks? */
 			if (is_array($filter['time-range'])) {
@@ -402,7 +410,13 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		$session = $this->gDavBackend->GetSession();
 		$ab = $this->gDavBackend->GetAddressBook();
 
-		$ics = mapi_mapitoical($session, $ab, $mapimessage, []);
+		$classProps = mapi_getprops($mapimessage, [PR_MESSAGE_CLASS]);
+		if (Notes::IsNoteClass($classProps[PR_MESSAGE_CLASS] ?? '')) {
+			$ics = $this->notes->ToICal($calendarId, $mapimessage, rawurldecode($realId));
+		}
+		else {
+			$ics = mapi_mapitoical($session, $ab, $mapimessage, []);
+		}
 		if (!$ics && mapi_last_hresult()) {
 			$this->logger->error("Error generating ical, error code: 0x%08X", mapi_last_hresult());
 			$ics = null;
@@ -559,6 +573,24 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			$this->logger->trace("newics: %s", $ics);
 		}
 
+		if (stripos($ics, 'BEGIN:VJOURNAL') !== false && $this->isNotesFolder($calendarId)) {
+			try {
+				$vcalendar = Reader::read($ics);
+			}
+			catch (\Throwable $throwable) {
+				throw new UnsupportedMediaType('Unable to convert the calendar data');
+			}
+			if (!$this->notes->FromICal($calendarId, $mapimessage, $vcalendar)) {
+				throw new UnsupportedMediaType('Unable to convert the calendar data');
+			}
+			if (!mapi_savechanges($mapimessage)) {
+				$this->gDavBackend->ThrowMapiError('Error saving mapi object');
+			}
+			$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
+
+			return $props[PR_LAST_MODIFICATION_TIME];
+		}
+
 		if (!mapi_icaltomapi($session, $store, $ab, $mapimessage, $ics, false)) {
 			// gromox fails with MAPI_E_CALL_FAILED on data it cannot convert
 			if (mapi_last_hresult() == MAPI_E_CALL_FAILED) {
@@ -678,6 +710,19 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		if (!empty($propsToUpdate)) {
 			mapi_setprops($mapimessage, $propsToUpdate);
 		}
+	}
+
+	/**
+	 * Checks if a calendar is a notes folder.
+	 *
+	 * @param string $calendarId
+	 *
+	 * @return bool
+	 */
+	private function isNotesFolder($calendarId) {
+		$props = mapi_getprops($this->gDavBackend->GetMapiFolder($calendarId), [PR_CONTAINER_CLASS]);
+
+		return strcasecmp($props[PR_CONTAINER_CLASS] ?? '', Notes::CONTAINER_CLASS) === 0;
 	}
 
 	/**

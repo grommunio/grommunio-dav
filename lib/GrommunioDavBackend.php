@@ -181,7 +181,7 @@ class GrommunioDavBackend {
 		}
 		$rows = mapi_table_queryallrows($hierarchy, $queryCols);
 
-		$rootprops = mapi_getprops($rootfolder, [PR_IPM_CONTACT_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID, PR_IPM_TASK_ENTRYID]);
+		$rootprops = mapi_getprops($rootfolder, [PR_IPM_CONTACT_ENTRYID, PR_IPM_APPOINTMENT_ENTRYID, PR_IPM_TASK_ENTRYID, PR_IPM_NOTE_ENTRYID]);
 
 		// Try to open the folders directly if there are no rows in hierarchy table,
 		// possibly top of the information store has no foldervisible permissions
@@ -193,6 +193,7 @@ class GrommunioDavBackend {
 					'IPF.Contact' => $rootprops[PR_IPM_CONTACT_ENTRYID] ?? null,
 					'IPF.Appointment' => $rootprops[PR_IPM_APPOINTMENT_ENTRYID] ?? null,
 					'IPF.Task' => $rootprops[PR_IPM_TASK_ENTRYID] ?? null,
+					Notes::CONTAINER_CLASS => $rootprops[PR_IPM_NOTE_ENTRYID] ?? null,
 					default => null,
 				};
 				if ($folderEntryId !== null) {
@@ -238,6 +239,12 @@ class GrommunioDavBackend {
 			}
 			if ($row[PR_CONTAINER_CLASS] == "IPF.Appointment") {
 				$folder['{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set'] = new SupportedCalendarComponentSet(['VEVENT']);
+			}
+			if ($row[PR_CONTAINER_CLASS] == Notes::CONTAINER_CLASS) {
+				$folder['{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set'] = new SupportedCalendarComponentSet(['VJOURNAL']);
+				if (isset($row[PR_RIGHTS]) && !($row[PR_RIGHTS] & (ecRightsCreate | ecRightsEditOwned | ecRightsEditAny | ecRightsDeleteOwned | ecRightsDeleteAny | ecRightsFolderAccess))) {
+					$folder['{http://sabredav.org/ns}read-only'] = true;
+				}
 			}
 
 			// Apple-specific folder metadata (calendar-color, calendar-order) stored in PSETID_GROMOX.
