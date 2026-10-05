@@ -16,8 +16,13 @@ define('SABRE_AUTH_REALM', 'grommunio dav');
 // Location of the SabreDAV server.
 define('DAV_ROOT_URI', '/dav/');
 
-// Location of the sync database (PDO syntax)
+// Location of the sync database (PDO syntax). Also read by the 'store'
+// sync state for states kept there before.
 define('SYNC_DB', 'sqlite:/var/lib/grommunio-dav/syncstate.db');
+
+// Where to keep the sync state: 'store', the hidden folder "GD-SyncState"
+// in the store of each user, or 'sqlite' (SYNC_DB).
+define('SYNC_STATE', 'store');
 
 // Number of items to send in one request.
 define('MAX_SYNC_ITEMS', 1000);
