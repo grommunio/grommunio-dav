@@ -37,7 +37,7 @@ $logger->debug('SabreDAV version %s', Version::VERSION);
 
 $gdavBackend = new GrommunioDavBackend(new GLogger('dav'));
 if (defined("SABRE_AUTH_BACKEND") && strcmp(SABRE_AUTH_BACKEND, "apache") == 0) {
-	$authBackend = new AuthApache();
+	$authBackend = new AuthApache(new GLogger('auth'));
 }
 else {
 	$authBackend = new AuthBasicBackend($gdavBackend);
