@@ -360,8 +360,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 				$this->distList->DeleteMembers($addressBookId, $mapimessage);
 			}
 			if (!mapi_vcftomapi($session, $store, $mapimessage, $vcf)) {
-				// gromox fails with MAPI_E_CALL_FAILED on data it cannot convert
-				if (mapi_last_hresult() == MAPI_E_CALL_FAILED) {
+				if ($this->gDavBackend->IsConversionError($mapimessage)) {
 					$this->logger->error("Unable to convert the vCard data");
 
 					throw new UnsupportedMediaType('Unable to convert the vCard data');

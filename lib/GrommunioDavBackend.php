@@ -660,6 +660,26 @@ class GrommunioDavBackend {
 	}
 
 	/**
+	 * Checks whether the conversion of iCalendar or vCard data into a
+	 * message failed because of the data.
+	 *
+	 * gromox answers data it cannot convert with MAPI_E_CALL_FAILED, but
+	 * also a session it does not know (any more). The session is still
+	 * known if the message can be read.
+	 *
+	 * @param mixed $mapimessage the message of the failed conversion
+	 *
+	 * @return bool
+	 */
+	public function IsConversionError($mapimessage) {
+		if (mapi_last_hresult() != MAPI_E_CALL_FAILED) {
+			return false;
+		}
+
+		return is_array(mapi_getprops($mapimessage, [PR_MESSAGE_CLASS]));
+	}
+
+	/**
 	 * Throws the DAV exception for an object that cannot be opened.
 	 *
 	 * @param string $message

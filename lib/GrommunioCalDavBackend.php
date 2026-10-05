@@ -710,8 +710,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		}
 
 		if (!mapi_icaltomapi($session, $store, $ab, $mapimessage, $ics, false)) {
-			// gromox fails with MAPI_E_CALL_FAILED on data it cannot convert
-			if (mapi_last_hresult() == MAPI_E_CALL_FAILED) {
+			if ($this->gDavBackend->IsConversionError($mapimessage)) {
 				$this->logger->error("Unable to convert the calendar data");
 
 				throw new UnsupportedMediaType('Unable to convert the calendar data');
