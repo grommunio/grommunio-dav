@@ -12,6 +12,9 @@ namespace grommunio\DAV;
 
 use Sabre\CardDAV\Backend\AbstractBackend;
 use Sabre\CardDAV\Backend\SyncSupport;
+use Sabre\DAV\Exception\Forbidden;
+use Sabre\DAV\Exception\NotFound;
+use Sabre\DAV\Exception\UnsupportedMediaType;
 use Sabre\DAV\PropPatch;
 
 class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
@@ -80,33 +83,43 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		];
 
 		$propPatch->handle($supportedProperties, function ($mutations) use ($addressBookId) {
-			return $this->applyAddressBookProperties($addressBookId, $mutations);
+			$uri = isset($mutations['{DAV:}displayname']) ? $this->gDavBackend->GetFolderUri($addressBookId, static::CONTAINER_CLASSES) : null;
+
+			return $this->applyAddressBookProperties($addressBookId, $mutations, $uri);
 		});
 	}
 
 	/**
 	 * Persists PROPPATCH-derived properties on the MAPI folder backing the address book.
 	 *
-	 * @param string $folderId
-	 * @param array  $mutations clark-notation property name => value
+	 * The displayname renames the folder, its URI is kept.
 	 *
-	 * @return bool
+	 * @param string      $folderId
+	 * @param array       $mutations clark-notation property name => value
+	 * @param null|string $uri       current URI of the folder, required for the displayname of folders not created over DAV
+	 *
+	 * @return array clark-notation property name => HTTP status
 	 */
-	private function applyAddressBookProperties($folderId, array $mutations) {
+	private function applyAddressBookProperties($folderId, array $mutations, $uri = null) {
 		if (empty($mutations)) {
-			return true;
+			return [];
 		}
 
 		$propsToSet = [];
 		$propsToDelete = [];
+		// MAPI property tag by clark-notation property name
+		$tags = [];
+		$result = [];
 
 		foreach ($mutations as $propertyName => $propertyValue) {
 			switch ($propertyName) {
 				case '{DAV:}displayname':
 					if ($propertyValue === null || $propertyValue === '') {
-						return false;
+						$result[$propertyName] = 403;
+						break;
 					}
 					$propsToSet[PR_DISPLAY_NAME] = (string) $propertyValue;
+					$tags[$propertyName] = PR_DISPLAY_NAME;
 					break;
 
 				case '{urn:ietf:params:xml:ns:carddav}addressbook-description':
@@ -116,6 +129,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 					else {
 						$propsToSet[PR_COMMENT] = (string) $propertyValue;
 					}
+					$tags[$propertyName] = PR_COMMENT;
 					break;
 
 				default:
@@ -124,7 +138,9 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 			}
 		}
 
-		return $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete);
+		$failed = $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete, $uri);
+
+		return $result + GrommunioDavBackend::GetPropPatchResult($mutations, $tags, $failed);
 	}
 
 	/**
@@ -135,14 +151,21 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 *
 	 * @param string $principalUri
 	 * @param string $url          just the 'basename' of the url
+	 * @param array  $properties   clark-notation property name => value
 	 *
 	 * @return mixed
 	 */
 	public function createAddressBook($principalUri, $url, array $properties) {
 		$this->logger->trace("principalUri: %s - url: %s - properties: %s", $principalUri, $url, $properties);
 
-		// TODO Add displayname
-		return $this->gDavBackend->CreateFolder($principalUri, $url, static::CONTAINER_CLASS, "");
+		$folderId = $this->gDavBackend->CreateFolder($principalUri, $url, static::CONTAINER_CLASS, "");
+		// the folder is named like the URI, which is kept when the displayname renames it
+		$this->applyAddressBookProperties($folderId, array_intersect_key($properties, [
+			'{DAV:}displayname' => true,
+			'{urn:ietf:params:xml:ns:carddav}addressbook-description' => true,
+		]));
+
+		return $folderId;
 	}
 
 	/**
@@ -152,8 +175,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 */
 	public function deleteAddressBook($addressBookId) {
 		$this->logger->trace("addressBookId: %s", $addressBookId);
-		$success = $this->gDavBackend->DeleteFolder($addressBookId);
-		// TODO evaluate $success
+		$this->gDavBackend->DeleteFolder($addressBookId);
 	}
 
 	/**
@@ -303,6 +325,9 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);
 
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($addressBookId, $cardUri, null, static::FILE_EXTENSION);
+		if (!$mapimessage) {
+			throw new NotFound('Card not found');
+		}
 
 		return $this->setData($addressBookId, $mapimessage, $cardData);
 	}
@@ -314,7 +339,9 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 * @param mixed  $mapimessage
 	 * @param string $vcf
 	 *
-	 * @return null|string
+	 * @return string the ETag
+	 *
+	 * @throws UnsupportedMediaType if the data cannot be converted
 	 */
 	private function setData($addressBookId, $mapimessage, $vcf) {
 		$store = $this->gDavBackend->GetStoreById($addressBookId);
@@ -322,23 +349,30 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 
 		$group = DistList::ParseGroupVCard($vcf);
 		if ($group !== null) {
-			$ok = $this->distList->FromVCard($addressBookId, $mapimessage, $group);
+			if (!$this->distList->FromVCard($addressBookId, $mapimessage, $group)) {
+				$this->gDavBackend->ThrowMapiError('Error updating mapi object');
+			}
 		}
 		else {
 			$props = mapi_getprops($mapimessage, [PR_MESSAGE_CLASS]);
 			if (DistList::IsDistListClass($props[PR_MESSAGE_CLASS] ?? '')) {
 				$this->distList->DeleteMembers($addressBookId, $mapimessage);
 			}
-			$ok = mapi_vcftomapi($session, $store, $mapimessage, $vcf);
-		}
-		if ($ok) {
-			mapi_savechanges($mapimessage);
-			$props = mapi_getprops($mapimessage);
+			if (!mapi_vcftomapi($session, $store, $mapimessage, $vcf)) {
+				if ($this->gDavBackend->IsConversionError($mapimessage)) {
+					$this->logger->error("Unable to convert the vCard data");
 
-			return '"' . $props[PR_LAST_MODIFICATION_TIME] . '"';
+					throw new UnsupportedMediaType('Unable to convert the vCard data');
+				}
+				$this->gDavBackend->ThrowMapiError('Error updating mapi object');
+			}
 		}
+		if (!mapi_savechanges($mapimessage)) {
+			$this->gDavBackend->ThrowMapiError('Error saving mapi object');
+		}
+		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
 
-		return null;
+		return '"' . $props[PR_LAST_MODIFICATION_TIME] . '"';
 	}
 
 	/**
@@ -371,13 +405,20 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	public function deleteCard($addressBookId, $cardUri) {
 		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);
 		$mapifolder = $this->gDavBackend->GetMapiFolder($addressBookId);
-		$objectId = $this->gDavBackend->GetObjectIdFromObjectUri($cardUri, static::FILE_EXTENSION);
 
 		// to delete we need the PR_ENTRYID of the message
 		// TODO move this part to GrommunioDavBackend
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($addressBookId, $cardUri, $mapifolder, static::FILE_EXTENSION);
-		$props = mapi_getprops($mapimessage, [PR_ENTRYID]);
-		mapi_folder_deletemessages($mapifolder, [$props[PR_ENTRYID]]);
+		if (!$mapimessage) {
+			throw new NotFound('Card not found');
+		}
+		$props = mapi_getprops($mapimessage, [PR_ENTRYID, PR_ACCESS]);
+		if (isset($props[PR_ACCESS]) && !($props[PR_ACCESS] & MAPI_ACCESS_DELETE)) {
+			throw new Forbidden('Permission denied to delete the object');
+		}
+		if (!mapi_folder_deletemessages($mapifolder, [$props[PR_ENTRYID]])) {
+			$this->gDavBackend->ThrowMapiError('Error deleting mapi object');
+		}
 
 		return true;
 	}

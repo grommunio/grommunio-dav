@@ -14,6 +14,9 @@
 namespace grommunio\DAV;
 
 class GalCache {
+	// changes of this many refreshes are kept for clients to catch up
+	public const KEEP_TOKENS = 10;
+
 	private $db;
 	private $ttl;
 	private $logger;
@@ -36,6 +39,7 @@ class GalCache {
 	 * Create tables if they don't exist yet.
 	 */
 	private function initSchema() {
+		$hasTokens = $this->db->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'gdav_gal_tokens'")->fetchColumn();
 		$this->db->exec("
 			CREATE TABLE IF NOT EXISTS gdav_gal_entries (
 				entryid_hex  TEXT PRIMARY KEY,
@@ -57,7 +61,20 @@ class GalCache {
 				change_type TEXT NOT NULL
 			);
 			CREATE INDEX IF NOT EXISTS idx_gal_changes_token ON gdav_gal_changes(sync_token);
+			CREATE TABLE IF NOT EXISTS gdav_gal_tokens (
+				sync_token  TEXT PRIMARY KEY,
+				last_change INTEGER NOT NULL
+			);
 		");
+		if (!$hasTokens) {
+			// the tokens of caches from before
+			$this->db->exec("
+				INSERT OR IGNORE INTO gdav_gal_tokens (sync_token, last_change)
+					SELECT sync_token, MAX(id) FROM gdav_gal_changes GROUP BY sync_token;
+				INSERT OR IGNORE INTO gdav_gal_tokens (sync_token, last_change)
+					SELECT value, (SELECT COALESCE(MAX(id), 0) FROM gdav_gal_changes) FROM gdav_gal_meta WHERE key = 'sync_token';
+			");
+		}
 	}
 
 	/**
@@ -118,17 +135,35 @@ class GalCache {
 				];
 			}
 
-			$syncToken = uniqid('gal-', true);
+			// Detect added, modified and deleted entries, by URI.
+			$changes = [];
+			$addChange = function ($uri, $type) use (&$changes) {
+				// a URI deleted and added again is a modification
+				$changes[$uri] = isset($changes[$uri]) && $changes[$uri] !== $type ? 'modified' : $type;
+			};
+			foreach ($newMap as $eid => $data) {
+				if (!isset($oldEntries[$eid])) {
+					$addChange($data['uri'], 'added');
+				}
+				elseif ($oldEntries[$eid]['uri'] !== $data['uri']) {
+					// the client only knows the card by its old name
+					$addChange($oldEntries[$eid]['uri'], 'deleted');
+					$addChange($data['uri'], 'added');
+				}
+				elseif ($oldEntries[$eid]['etag'] !== $data['etag']) {
+					$addChange($data['uri'], 'modified');
+				}
+			}
+			foreach ($oldEntries as $eid => $old) {
+				if (!isset($newMap[$eid])) {
+					$addChange($old['uri'], 'deleted');
+				}
+			}
 
-			// Detect added and modified.
 			$upsert = $this->db->prepare(
 				"REPLACE INTO gdav_gal_entries (entryid_hex, uri, display_name, email, vcard_data, etag, size)
 				 VALUES (:eid, :uri, :dn, :email, :vcard, :etag, :size)"
 			);
-			$changeStmt = $this->db->prepare(
-				"INSERT INTO gdav_gal_changes (sync_token, uri, change_type) VALUES (:token, :uri, :type)"
-			);
-
 			foreach ($newMap as $eid => $data) {
 				$upsert->execute([
 					':eid' => $eid,
@@ -139,40 +174,51 @@ class GalCache {
 					':etag' => $data['etag'],
 					':size' => $data['size'],
 				]);
-
-				if (!isset($oldEntries[$eid])) {
-					$changeStmt->execute([':token' => $syncToken, ':uri' => $data['uri'], ':type' => 'added']);
-				}
-				elseif ($oldEntries[$eid]['etag'] !== $data['etag']) {
-					$changeStmt->execute([':token' => $syncToken, ':uri' => $data['uri'], ':type' => 'modified']);
-				}
 			}
-
-			// Detect deleted.
 			$deleteStmt = $this->db->prepare("DELETE FROM gdav_gal_entries WHERE entryid_hex = :eid");
 			foreach ($oldEntries as $eid => $old) {
 				if (!isset($newMap[$eid])) {
-					$changeStmt->execute([':token' => $syncToken, ':uri' => $old['uri'], ':type' => 'deleted']);
 					$deleteStmt->execute([':eid' => $eid]);
 				}
 			}
 
-			// Update metadata.
 			$this->db->prepare(
 				"REPLACE INTO gdav_gal_meta (key, value) VALUES ('last_refresh', :ts)"
 			)->execute([':ts' => time()]);
+
+			// Keep the sync token if nothing changed, clients holding it
+			// would have to start over otherwise.
+			$syncToken = $this->getSyncToken();
+			if (empty($changes) && $syncToken !== null) {
+				$this->db->exec("COMMIT");
+				$this->logger->debug("GalCache: refreshed with %d entries, no changes, sync_token=%s", count($entries), $syncToken);
+
+				return;
+			}
+			$syncToken = uniqid('gal-', true);
+
+			$changeStmt = $this->db->prepare(
+				"INSERT INTO gdav_gal_changes (sync_token, uri, change_type) VALUES (:token, :uri, :type)"
+			);
+			foreach ($changes as $uri => $type) {
+				$changeStmt->execute([':token' => $syncToken, ':uri' => $uri, ':type' => $type]);
+			}
 			$this->db->prepare(
 				"REPLACE INTO gdav_gal_meta (key, value) VALUES ('sync_token', :token)"
 			)->execute([':token' => $syncToken]);
+			// the changes after a token are those with a higher id
+			$this->db->prepare(
+				"INSERT INTO gdav_gal_tokens (sync_token, last_change)
+				 SELECT :token, COALESCE(MAX(id), 0) FROM gdav_gal_changes"
+			)->execute([':token' => $syncToken]);
 
-			// Cleanup: keep changes for last 2 sync tokens only.
-			$cleanup = $this->db->prepare(
-				"DELETE FROM gdav_gal_changes WHERE sync_token NOT IN (
-					SELECT sync_token FROM gdav_gal_changes
-					GROUP BY sync_token ORDER BY MAX(id) DESC LIMIT 2
+			// Cleanup: forget the oldest tokens and the changes before the oldest one kept.
+			$this->db->prepare(
+				"DELETE FROM gdav_gal_tokens WHERE sync_token NOT IN (
+					SELECT sync_token FROM gdav_gal_tokens ORDER BY last_change DESC, rowid DESC LIMIT " . (int) static::KEEP_TOKENS . "
 				)"
-			);
-			$cleanup->execute();
+			)->execute();
+			$this->db->exec("DELETE FROM gdav_gal_changes WHERE id <= (SELECT MIN(last_change) FROM gdav_gal_tokens)");
 
 			$this->db->exec("COMMIT");
 			$this->logger->debug("GalCache: refreshed with %d entries, sync_token=%s", count($entries), $syncToken);
@@ -241,25 +287,25 @@ class GalCache {
 	/**
 	 * Return changes since the given sync token.
 	 *
-	 * @param string     $syncToken
-	 * @param null|mixed $limit
+	 * The changes of several refreshes are merged by URI. The limit is
+	 * not exceeded unless the changes of a single refresh exceed it: the
+	 * token returned on truncation is the one of the last refresh
+	 * reported completely, so the client continues from there. An
+	 * initial sync always returns all entries, it cannot be continued.
+	 *
+	 * @param null|string $syncToken
+	 * @param null|int    $limit
 	 *
 	 * @return null|array null if token is unknown/expired
 	 */
 	public function getChanges($syncToken, $limit = null) {
+		$currentToken = $this->getSyncToken();
+
 		// If syncToken is null or empty, return all entries as "added" (initial sync).
 		if ($syncToken === null || $syncToken === '') {
-			$currentToken = $this->getSyncToken();
-			$cards = $this->getAllCards();
 			$added = [];
-			foreach ($cards as $card) {
+			foreach ($this->getAllCards() as $card) {
 				$added[] = $card['uri'];
-			}
-
-			$resultTruncated = false;
-			if ($limit > 0 && count($added) > $limit) {
-				$added = array_slice($added, 0, $limit);
-				$resultTruncated = true;
 			}
 
 			return [
@@ -267,17 +313,11 @@ class GalCache {
 				'added' => $added,
 				'modified' => [],
 				'deleted' => [],
-				'result_truncated' => $resultTruncated,
+				'result_truncated' => false,
 			];
 		}
 
-		// Check if the token is still known.
-		$stmt = $this->db->prepare("SELECT COUNT(*) FROM gdav_gal_changes WHERE sync_token = :token");
-		$stmt->execute([':token' => $syncToken]);
-		$exists = (int) $stmt->fetchColumn();
-
 		// Also accept if the requested token *is* the current token (no changes).
-		$currentToken = $this->getSyncToken();
 		if ($syncToken === $currentToken) {
 			return [
 				'syncToken' => $currentToken,
@@ -288,54 +328,60 @@ class GalCache {
 			];
 		}
 
-		if ($exists === 0) {
+		// Check if the token is still known.
+		$stmt = $this->db->prepare("SELECT last_change FROM gdav_gal_tokens WHERE sync_token = :token");
+		$stmt->execute([':token' => $syncToken]);
+		$lastId = $stmt->fetchColumn();
+		if ($lastId === false) {
 			// Token expired / unknown.
 			return null;
 		}
 
-		// Collect all changes that happened *after* the given token.
-		// Changes are ordered by id; the given token's changes are the
-		// baseline, so we want everything with id > max(id for that token).
-		$sql = "SELECT uri, change_type FROM gdav_gal_changes WHERE id > (
-				SELECT COALESCE(MAX(id), 0) FROM gdav_gal_changes WHERE sync_token = :token
-			) ORDER BY id ASC";
-		if ($limit > 0) {
-			$sql .= ' LIMIT ' . ((int) $limit + 1);
-		}
-		$stmt = $this->db->prepare($sql);
-		$stmt->execute([':token' => $syncToken]);
-
-		$added = [];
-		$modified = [];
-		$deleted = [];
-		$count = 0;
+		// Collect all changes that happened *after* the given token,
+		// grouped by the refresh (token) they belong to.
+		$stmt = $this->db->prepare("SELECT sync_token, uri, change_type FROM gdav_gal_changes WHERE id > :id ORDER BY id ASC");
+		$stmt->execute([':id' => $lastId]);
+		$groups = [];
 		while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-			++$count;
-			if ($limit > 0 && $count > $limit) {
+			$groups[$row['sync_token']][] = $row;
+		}
+
+		// first and last change of each URI
+		$first = [];
+		$last = [];
+		$count = 0;
+		$resultToken = $syncToken;
+		$truncated = false;
+		foreach ($groups as $token => $rows) {
+			if ($limit > 0 && $count > 0 && $count + count($rows) > $limit) {
+				$truncated = true;
+
 				break;
 			}
+			foreach ($rows as $row) {
+				$first[$row['uri']] ??= $row['change_type'];
+				$last[$row['uri']] = $row['change_type'];
+			}
+			$count += count($rows);
+			$resultToken = $token;
+		}
 
-			switch ($row['change_type']) {
-				case 'added':
-					$added[] = $row['uri'];
-					break;
-
-				case 'modified':
-					$modified[] = $row['uri'];
-					break;
-
-				case 'deleted':
-					$deleted[] = $row['uri'];
-					break;
+		$changes = ['added' => [], 'modified' => [], 'deleted' => []];
+		foreach ($first as $uri => $type) {
+			$known = $type !== 'added';
+			$exists = $last[$uri] !== 'deleted';
+			if ($known || $exists) {
+				// a card added and deleted again is not reported
+				$changes[$known ? ($exists ? 'modified' : 'deleted') : 'added'][] = $uri;
 			}
 		}
 
 		return [
-			'syncToken' => $currentToken,
-			'added' => $added,
-			'modified' => $modified,
-			'deleted' => $deleted,
-			'result_truncated' => $limit > 0 && $count > $limit,
+			'syncToken' => $truncated ? $resultToken : $currentToken,
+			'added' => $changes['added'],
+			'modified' => $changes['modified'],
+			'deleted' => $changes['deleted'],
+			'result_truncated' => $truncated,
 		];
 	}
 }

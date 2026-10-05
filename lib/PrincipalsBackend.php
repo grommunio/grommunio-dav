@@ -45,7 +45,11 @@ class PrincipalsBackend implements BackendInterface {
 	public function getPrincipalsByPrefix($prefixPath) {
 		$principals = [];
 		if ($prefixPath === 'principals') {
-			$principals[] = $this->getPrincipalByPath($prefixPath);
+			// the user might be unknown to the address book
+			$principal = $this->getPrincipalByPath($prefixPath);
+			if ($principal) {
+				$principals[] = $principal;
+			}
 			$principals[] = $this->getPrincipalByPath('principals/public');
 		}
 

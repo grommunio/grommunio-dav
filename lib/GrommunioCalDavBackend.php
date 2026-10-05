@@ -31,6 +31,8 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	private $logger;
 	protected $gDavBackend;
 	protected $notes;
+	// objects converted by calendarQuery(), by calendar id and URI
+	private $queryObjects = [];
 
 	public const FILE_EXTENSION = '.ics';
 	// Include appointments, tasks and notes so all lists sync properly.
@@ -89,6 +91,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 *
 	 * @param string $principalUri
 	 * @param string $calendarUri
+	 * @param array  $properties   clark-notation property name => value
 	 *
 	 * @return string
 	 */
@@ -113,10 +116,10 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			}
 		}
 
-		// TODO Add displayname
 		$folderId = $this->gDavBackend->CreateFolder($principalUri, $calendarUri, $containerClass, "");
 
 		// Apply Apple/DAV metadata submitted during MKCALENDAR (color, order, displayname, transp).
+		// The folder is named like the URI, which is kept when the displayname renames it.
 		$this->applyCalendarProperties($folderId, $properties);
 
 		return $folderId;
@@ -130,7 +133,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 * Sabre default returns 403 Forbidden for each unknown property, which causes Apple clients to fall
 	 * into a resync loop.
 	 *
-	 * @param mixed $calendarId
+	 * @param string $calendarId
 	 */
 	public function updateCalendar($calendarId, PropPatch $propPatch) {
 		$this->logger->trace("calendarId: %s", $calendarId);
@@ -144,39 +147,49 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		];
 
 		$propPatch->handle($supportedProperties, function ($mutations) use ($calendarId) {
-			return $this->applyCalendarProperties($calendarId, $mutations);
+			$uri = isset($mutations['{DAV:}displayname']) ? $this->gDavBackend->GetFolderUri($calendarId, static::CONTAINER_CLASSES) : null;
+
+			return $this->applyCalendarProperties($calendarId, $mutations, $uri);
 		});
 	}
 
 	/**
 	 * Translates DAV/Apple calendar properties into MAPI properties and stores them on the folder.
 	 *
-	 * @param string $folderId
-	 * @param array  $mutations map of clark-notation property name => value (null = remove)
+	 * The displayname renames the folder, its URI is kept.
 	 *
-	 * @return bool
+	 * @param string      $folderId
+	 * @param array       $mutations map of clark-notation property name => value (null = remove)
+	 * @param null|string $uri       current URI of the folder, required for the displayname of folders not created over DAV
+	 *
+	 * @return array clark-notation property name => HTTP status
 	 */
-	private function applyCalendarProperties($folderId, array $mutations) {
+	private function applyCalendarProperties($folderId, array $mutations, $uri = null) {
 		if (empty($mutations)) {
-			return true;
+			return [];
 		}
 
 		$store = $this->gDavBackend->GetStoreById($folderId);
 		if (!$store) {
-			return false;
+			return array_fill_keys(array_keys($mutations), 403);
 		}
 		$davProps = $this->gDavBackend->GetFolderDavProperties($store);
 
 		$propsToSet = [];
 		$propsToDelete = [];
+		// MAPI property tag by clark-notation property name
+		$tags = [];
+		$result = [];
 
 		foreach ($mutations as $propertyName => $propertyValue) {
 			switch ($propertyName) {
 				case '{DAV:}displayname':
 					if ($propertyValue === null || $propertyValue === '') {
-						return false;
+						$result[$propertyName] = 403;
+						break;
 					}
 					$propsToSet[PR_DISPLAY_NAME] = (string) $propertyValue;
+					$tags[$propertyName] = PR_DISPLAY_NAME;
 					break;
 
 				case '{urn:ietf:params:xml:ns:caldav}calendar-description':
@@ -186,6 +199,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 					else {
 						$propsToSet[PR_COMMENT] = (string) $propertyValue;
 					}
+					$tags[$propertyName] = PR_COMMENT;
 					break;
 
 				case '{http://apple.com/ns/ical/}calendar-color':
@@ -195,6 +209,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 					else {
 						$propsToSet[$davProps['calendarColor']] = (string) $propertyValue;
 					}
+					$tags[$propertyName] = $davProps['calendarColor'];
 					break;
 
 				case '{http://apple.com/ns/ical/}calendar-order':
@@ -204,6 +219,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 					else {
 						$propsToSet[$davProps['calendarOrder']] = (int) (string) $propertyValue;
 					}
+					$tags[$propertyName] = $davProps['calendarOrder'];
 					break;
 
 				case '{urn:ietf:params:xml:ns:caldav}schedule-calendar-transp':
@@ -217,6 +233,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 					else {
 						$propsToSet[$davProps['calendarTransp']] = ($value === 'transparent');
 					}
+					$tags[$propertyName] = $davProps['calendarTransp'];
 					break;
 
 				default:
@@ -227,7 +244,9 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			}
 		}
 
-		return $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete);
+		$failed = $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete, $uri);
+
+		return $result + GrommunioDavBackend::GetPropPatchResult($mutations, $tags, $failed);
 	}
 
 	/**
@@ -237,8 +256,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 */
 	public function deleteCalendar($calendarId) {
 		$this->logger->trace("calendarId: %s", $calendarId);
-		$success = $this->gDavBackend->DeleteFolder($calendarId);
-		// TODO evaluate $success
+		$this->gDavBackend->DeleteFolder($calendarId);
 	}
 
 	/**
@@ -326,31 +344,47 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 * to think of.
 	 *
 	 * @param mixed $calendarId
+	 * @param array $filters    see \Sabre\CalDAV\CalendarQueryParser
 	 *
 	 * @return array
 	 */
 	public function calendarQuery($calendarId, array $filters) {
 		$start = $end = null;
 		$types = [];
-		foreach ($filters['comp-filters'] as $filter) {
+		// Message classes and the time range of events are filtered by
+		// MAPI, everything else by validating each candidate object.
+		$requirePostFilter = !empty($filters['prop-filters']) || count($filters['comp-filters'] ?? []) > 1;
+		foreach ($filters['comp-filters'] ?? [] as $filter) {
+			if (!empty($filter['is-not-defined'])) {
+				// objects without the component, of any class
+				$types = static::MESSAGE_CLASSES;
+				$requirePostFilter = true;
+
+				break;
+			}
+			if (!empty($filter['comp-filters']) || !empty($filter['prop-filters'])) {
+				$requirePostFilter = true;
+			}
 			if ($filter['name'] == 'VEVENT') {
 				$types[] = 'IPM.Appointment';
-			}
-			elseif ($filter['name'] == 'VTODO') {
-				$types[] = 'IPM.Task';
-			}
-			elseif ($filter['name'] == 'VJOURNAL') {
-				$types[] = Notes::MESSAGE_CLASS;
-			}
-
-			/* will this work on tasks? */
-			if (is_array($filter['time-range'])) {
-				if (isset($filter['time-range']['start'])) {
-					$start = $filter['time-range']['start']->getTimestamp();
+				if (is_array($filter['time-range'] ?? null)) {
+					if (isset($filter['time-range']['start'])) {
+						$start = $filter['time-range']['start']->getTimestamp();
+					}
+					if (isset($filter['time-range']['end'])) {
+						$end = $filter['time-range']['end']->getTimestamp();
+					}
 				}
-				if (isset($filter['time-range']['end'])) {
-					$end = $filter['time-range']['end']->getTimestamp();
+			}
+			elseif ($filter['name'] == 'VTODO' || $filter['name'] == 'VJOURNAL') {
+				$types[] = $filter['name'] == 'VTODO' ? 'IPM.Task' : Notes::MESSAGE_CLASS;
+				// only events are restricted by time
+				if (is_array($filter['time-range'] ?? null)) {
+					$requirePostFilter = true;
 				}
+			}
+			else {
+				$requirePostFilter = true;
 			}
 		}
 
@@ -364,13 +398,111 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			$objfilters["types"] = $types;
 		}
 
-		$objects = $this->gDavBackend->GetObjects($calendarId, static::FILE_EXTENSION, $objfilters);
+		// a search by UID, e.g. by getCalendarObjectByUID(), only needs the objects with this UID
+		$uid = static::GetUidOfFilters($filters);
+		if ($uid !== null) {
+			$objects = $this->gDavBackend->GetObjects($calendarId, static::FILE_EXTENSION, $objfilters + ['uid' => $uid]);
+			if (empty($objects)) {
+				// goids not derived from the UID, see GetMapiMessageForId()
+				$objects = array_filter(
+					$this->gDavBackend->GetObjects($calendarId, static::FILE_EXTENSION, $objfilters),
+					fn ($object) => rawurldecode($object['id']) === $uid
+				);
+			}
+		}
+		else {
+			$objects = $this->gDavBackend->GetObjects($calendarId, static::FILE_EXTENSION, $objfilters);
+		}
 		$result = [];
 		foreach ($objects as $object) {
+			// objects found by UID need no further check: the filters only ask for the UID, and a
+			// UID derived from the goid of an Outlook item may differ in case from the searched one
+			if ($requirePostFilter && !$this->matchesFilters($calendarId, $object, $filters, $uid === null)) {
+				continue;
+			}
 			$result[] = $object['uri'];
 		}
 
-		return $result;
+		return array_values(array_unique($result));
+	}
+
+	/**
+	 * Returns the UID searched by the filters of a calendar-query, if
+	 * that is all they do.
+	 *
+	 * RFC 4791 text-match finds substrings, a search by UID is taken for
+	 * the exact UID as by Sabre's own backends.
+	 *
+	 * @return null|string
+	 */
+	public static function GetUidOfFilters(array $filters) {
+		if (!empty($filters['is-not-defined']) || !empty($filters['prop-filters']) || !empty($filters['time-range']) || count($filters['comp-filters'] ?? []) !== 1) {
+			return null;
+		}
+		$compFilter = $filters['comp-filters'][0];
+		if (!empty($compFilter['is-not-defined']) || !empty($compFilter['comp-filters']) || !empty($compFilter['time-range']) || count($compFilter['prop-filters'] ?? []) !== 1) {
+			return null;
+		}
+		$propFilter = $compFilter['prop-filters'][0];
+		$textMatch = $propFilter['text-match'] ?? null;
+		if (strtoupper($propFilter['name'] ?? '') !== 'UID' || !empty($propFilter['is-not-defined']) || !empty($propFilter['param-filters']) ||
+			!empty($propFilter['time-range']) || !is_array($textMatch) || !empty($textMatch['negate-condition']) ||
+			!in_array($textMatch['collation'] ?? 'i;ascii-casemap', ['i;octet', 'i;ascii-casemap'], true) || ($textMatch['value'] ?? '') === '') {
+			return null;
+		}
+
+		return (string) $textMatch['value'];
+	}
+
+	/**
+	 * Checks an object against the filters of a calendar-query. A matching
+	 * object is kept for getCalendarObject().
+	 *
+	 * @param string $calendarId
+	 * @param array  $object     as returned by GetObjects()
+	 * @param bool   $validate   false if the object is known to match
+	 *
+	 * @return bool
+	 */
+	private function matchesFilters($calendarId, array $object, array $filters, $validate = true) {
+		$data = $this->getQueryCandidate($calendarId, $object);
+		if ($data === null || $data['calendardata'] === '') {
+			return false;
+		}
+
+		try {
+			$matches = !$validate || $this->validateFilterForObject($data, $filters);
+		}
+		catch (\Throwable $throwable) {
+			$this->logger->debug("Unable to check object %s against the filters: %s", $object['uri'], $throwable->getMessage());
+
+			return false;
+		}
+		if ($matches) {
+			// Sabre fetches the objects found right after
+			$this->queryObjects[$calendarId][$object['uri']] = $data;
+		}
+
+		return $matches;
+	}
+
+	/**
+	 * Returns an object found by GetObjects() with its calendar data.
+	 *
+	 * @param string $calendarId
+	 * @param array  $object     as returned by GetObjects()
+	 *
+	 * @return null|array
+	 */
+	protected function getQueryCandidate($calendarId, array $object) {
+		$mapimessage = mapi_msgstore_openentry($this->gDavBackend->GetStoreById($calendarId), hex2bin($object['entryid']));
+		if (!$mapimessage) {
+			$this->logger->info("Unable to open object %s: 0x%x", $object['uri'], mapi_last_hresult());
+
+			return null;
+		}
+
+		return $this->toCalendarObject($calendarId, $mapimessage, $object['id']);
 	}
 
 	/**
@@ -393,6 +525,10 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	public function getCalendarObject($calendarId, $objectUri, $mapifolder = null) {
 		$this->logger->trace("calendarId: %s - objectUri: %s - mapifolder: %s", $calendarId, $objectUri, $mapifolder);
 
+		if (isset($this->queryObjects[$calendarId][$objectUri])) {
+			return $this->queryObjects[$calendarId][$objectUri];
+		}
+
 		if (!$mapifolder) {
 			$mapifolder = $this->gDavBackend->GetMapiFolder($calendarId);
 		}
@@ -404,7 +540,20 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			return null;
 		}
 
-		$realId = $this->gDavBackend->GetIdOfMapiMessage($calendarId, $mapimessage);
+		return $this->toCalendarObject($calendarId, $mapimessage);
+	}
+
+	/**
+	 * Returns a message as calendar object.
+	 *
+	 * @param string      $calendarId
+	 * @param mixed       $mapimessage
+	 * @param null|string $realId      the id of the object, if known
+	 *
+	 * @return array
+	 */
+	private function toCalendarObject($calendarId, $mapimessage, $realId = null) {
+		$realId ??= $this->gDavBackend->GetIdOfMapiMessage($calendarId, $mapimessage);
 
 		// this should be cached or moved to gDavBackend
 		$session = $this->gDavBackend->GetSession();
@@ -470,6 +619,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 */
 	public function createCalendarObject($calendarId, $objectUri, $calendarData) {
 		$this->logger->trace("calendarId: %s - objectUri: %s", $calendarId, $objectUri);
+		unset($this->queryObjects[$calendarId]);
 		$objectId = $this->gDavBackend->GetObjectIdFromObjectUri($objectUri, static::FILE_EXTENSION);
 		$folder = $this->gDavBackend->GetMapiFolder($calendarId);
 		$mapimessage = $this->gDavBackend->CreateObject($calendarId, $folder, $objectId);
@@ -502,6 +652,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 */
 	public function updateCalendarObject($calendarId, $objectUri, $calendarData) {
 		$this->logger->trace("calendarId: %s - objectUri: %s", $calendarId, $objectUri);
+		unset($this->queryObjects[$calendarId]);
 
 		$folder = $this->gDavBackend->GetMapiFolder($calendarId);
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($calendarId, $objectUri, null, static::FILE_EXTENSION);
@@ -533,45 +684,9 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		$session = $this->gDavBackend->GetSession();
 		$ab = $this->gDavBackend->GetAddressBook();
 
-		// Evolution sends daylight/standard information in the ical data
-		// and some values are not supported by Outlook/Exchange.
-		// Strip that data and leave only the last occurrences of
-		// daylight/standard information.
-		// @see GRAM-52
-
-		$xLicLocation = stripos($ics, 'X-LIC-LOCATION:');
-		if (($xLicLocation !== false) &&
-				(
-					substr_count($ics, 'BEGIN:DAYLIGHT', $xLicLocation) > 0 ||
-					substr_count($ics, 'BEGIN:STANDARD', $xLicLocation) > 0
-				)) {
-			$firstDaytime = stripos($ics, 'BEGIN:DAYLIGHT', $xLicLocation);
-			$firstStandard = stripos($ics, 'BEGIN:STANDARD', $xLicLocation);
-
-			$lastDaytime = strripos($ics, 'BEGIN:DAYLIGHT', $xLicLocation);
-			$lastStandard = strripos($ics, 'BEGIN:STANDARD', $xLicLocation);
-
-			// the first part of ics until the first piece of standard/daytime information
-			$cutStart = $firstDaytime < $firstStandard ? $firstDaytime : $firstStandard;
-
-			if ($lastDaytime > $lastStandard) {
-				// the part of the ics with the last piece of standard/daytime information
-				$cutEnd = $lastDaytime;
-
-				// the positions of the last piece of standard information
-				$cut1 = $lastStandard;
-				$cut2 = strripos($ics, 'END:STANDARD', $lastStandard) + 14; // strlen('END:STANDARD')
-			}
-			else {
-				// the part of the ics with the last piece of standard/daytime information
-				$cutEnd = $lastStandard;
-
-				// the positions of the last piece of daylight information
-				$cut1 = $lastDaytime;
-				$cut2 = strripos($ics, 'END:DAYLIGHT', $lastDaytime) + 14; // strlen('END:DAYLIGHT')
-			}
-
-			$ics = substr($ics, 0, $cutStart) . substr($ics, $cut1, $cut2 - $cut1) . substr($ics, $cutEnd);
+		$trimmed = static::TrimTimezoneObservances($ics);
+		if ($trimmed !== $ics) {
+			$ics = $trimmed;
 			$this->logger->trace("newics: %s", $ics);
 		}
 
@@ -594,8 +709,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		}
 
 		if (!mapi_icaltomapi($session, $store, $ab, $mapimessage, $ics, false)) {
-			// gromox fails with MAPI_E_CALL_FAILED on data it cannot convert
-			if (mapi_last_hresult() == MAPI_E_CALL_FAILED) {
+			if ($this->gDavBackend->IsConversionError($mapimessage)) {
 				$this->logger->error("Unable to convert the calendar data");
 
 				throw new UnsupportedMediaType('Unable to convert the calendar data');
@@ -628,6 +742,65 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
 
 		return $props[PR_LAST_MODIFICATION_TIME];
+	}
+
+	/**
+	 * Reduces the time zones sent by Evolution to their current rules.
+	 *
+	 * Evolution (libical, recognizable by X-LIC-LOCATION) sends all
+	 * historic STANDARD and DAYLIGHT observances of a time zone, some of
+	 * which are not supported by Outlook/Exchange. Only the latest
+	 * observance of each kind is kept in every such VTIMEZONE.
+	 *
+	 * @see GRAM-52
+	 *
+	 * @param string $ics
+	 *
+	 * @return string the data, unchanged if nothing was removed or it cannot be parsed
+	 */
+	public static function TrimTimezoneObservances($ics) {
+		if (stripos($ics, 'X-LIC-LOCATION') === false) {
+			return $ics;
+		}
+
+		try {
+			// like libical, accept e.g. "_" in property names
+			$vcalendar = Reader::read($ics, Reader::OPTION_FORGIVING);
+		}
+		catch (\Throwable $throwable) {
+			return $ics;
+		}
+
+		$changed = false;
+		foreach ($vcalendar->select('VTIMEZONE') as $vtimezone) {
+			if (!isset($vtimezone->{'X-LIC-LOCATION'})) {
+				continue;
+			}
+			foreach (['STANDARD', 'DAYLIGHT'] as $kind) {
+				$observances = $vtimezone->select($kind);
+				if (count($observances) < 2) {
+					continue;
+				}
+				// keep the observance starting last, the later one on equal starts
+				$keep = null;
+				$keepStart = null;
+				foreach ($observances as $observance) {
+					$start = isset($observance->DTSTART) ? (string) $observance->DTSTART->getValue() : '';
+					if ($keep === null || strcmp($start, $keepStart) >= 0) {
+						$keep = $observance;
+						$keepStart = $start;
+					}
+				}
+				foreach ($observances as $observance) {
+					if ($observance !== $keep) {
+						$vtimezone->remove($observance);
+						$changed = true;
+					}
+				}
+			}
+		}
+
+		return $changed ? $vcalendar->serialize() : $ics;
 	}
 
 	/**
@@ -728,11 +901,11 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	}
 
 	/**
-	 * Reduces private events and tasks to their scheduling data.
+	 * Reduces private events, tasks and notes to their scheduling data.
 	 *
 	 * @param string $ics
 	 *
-	 * @return null|string
+	 * @return null|string null if the data cannot be parsed
 	 */
 	private function maskPrivateData($ics) {
 		try {
@@ -745,7 +918,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		}
 
 		foreach ($vcalendar->getComponents() as $component) {
-			if ($component->name !== 'VEVENT' && $component->name !== 'VTODO') {
+			if (!in_array($component->name, ['VEVENT', 'VTODO', 'VJOURNAL'], true)) {
 				continue;
 			}
 			foreach ($component->children() as $child) {
@@ -861,6 +1034,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 */
 	public function deleteCalendarObject($calendarId, $objectUri) {
 		$this->logger->trace("calendarId: %s - objectUri: %s", $calendarId, $objectUri);
+		unset($this->queryObjects[$calendarId]);
 
 		$mapifolder = $this->gDavBackend->GetMapiFolder($calendarId);
 

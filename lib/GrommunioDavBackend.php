@@ -14,9 +14,14 @@ use Sabre\CalDAV\Xml\Property\ScheduleCalendarTransp;
 use Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet;
 use Sabre\DAV\Exception as DAVException;
 use Sabre\DAV\Exception\Forbidden;
+use Sabre\DAV\Exception\NotFound;
 
 class GrommunioDavBackend {
 	public const IMPERSONATE_DELIM = '!';
+
+	// seconds a folder must be unchanged before its sync state is taken as current,
+	// covers the second granularity of the change time and clock differences of servers
+	public const SYNC_MARK_MARGIN = 60;
 	private $logger;
 	protected $session;
 	protected $stores;
@@ -105,46 +110,127 @@ class GrommunioDavBackend {
 	 * Create a folder with MAPI class.
 	 *
 	 * @param mixed  $principalUri
-	 * @param string $url
+	 * @param string $url          the name and URI of the folder
 	 * @param string $class
-	 * @param string $displayname
+	 * @param string $comment
 	 *
-	 * @return string
+	 * @return string the folder id (principal:sourcekey)
 	 */
-	public function CreateFolder($principalUri, $url, $class, $displayname) {
-		$props = mapi_getprops($this->GetStore($principalUri), [PR_IPM_SUBTREE_ENTRYID]);
-		$folder = mapi_msgstore_openentry($this->GetStore($principalUri), $props[PR_IPM_SUBTREE_ENTRYID]);
-		$newfolder = mapi_folder_createfolder($folder, $url, $displayname);
-		mapi_setprops($newfolder, [PR_CONTAINER_CLASS => $class]);
+	public function CreateFolder($principalUri, $url, $class, $comment) {
+		$store = $this->GetStore($principalUri);
+		if (!$store) {
+			$this->throwOpenError(sprintf('Unable to open the store of %s', $principalUri));
+		}
+		$props = mapi_getprops($store, [PR_IPM_SUBTREE_ENTRYID]);
+		$folder = mapi_msgstore_openentry($store, $props[PR_IPM_SUBTREE_ENTRYID]);
+		if (!$folder) {
+			$this->throwOpenError('Unable to open the IPM subtree');
+		}
+		$newfolder = mapi_folder_createfolder($folder, $url, $comment);
+		if (!$newfolder) {
+			$this->ThrowMapiError('Unable to create folder');
+		}
+		// the URI is kept when a client renames the folder
+		$davProps = $this->GetFolderDavProperties($store);
+		mapi_setprops($newfolder, [PR_CONTAINER_CLASS => $class, $davProps['davUri'] => $url]);
 		// Return the composite folder id (principal:sourcekey) so callers that need to address the
 		// freshly created folder via GetMapiFolder()/UpdateFolderProperties() can do so without
 		// another round-trip. The original URL is still used by Sabre as the URI segment.
 		$newprops = mapi_getprops($newfolder, [PR_SOURCE_KEY]);
-		if (isset($newprops[PR_SOURCE_KEY])) {
-			return $principalUri . ':' . bin2hex($newprops[PR_SOURCE_KEY]);
+		if (!isset($newprops[PR_SOURCE_KEY])) {
+			$this->ThrowMapiError('Unable to get the source key of the new folder');
 		}
 
-		return $url;
+		return $principalUri . ':' . bin2hex($newprops[PR_SOURCE_KEY]);
 	}
 
 	/**
-	 * Delete a folder with MAPI class.
+	 * Deletes a folder with its contents. Like grommunio-web, the folder is
+	 * moved to Deleted Items, if the store has that and it is not in there.
 	 *
-	 * @param mixed $id
+	 * @param string $id
 	 *
-	 * @return bool
+	 * @throws DAVException if the folder cannot be deleted
 	 */
 	public function DeleteFolder($id) {
 		$folder = $this->GetMapiFolder($id);
-		if (!$folder) {
-			return false;
+		$store = $this->GetStoreById($id);
+		$props = mapi_getprops($folder, [PR_ENTRYID, PR_PARENT_ENTRYID, PR_DISPLAY_NAME]);
+		$parentfolder = isset($props[PR_PARENT_ENTRYID]) ? mapi_msgstore_openentry($store, $props[PR_PARENT_ENTRYID]) : false;
+		if (!$parentfolder) {
+			$this->throwOpenError(sprintf('Unable to open the parent folder of %s', $id));
+		}
+		$storeprops = mapi_getprops($store, [PR_IPM_WASTEBASKET_ENTRYID]);
+		if (isset($storeprops[PR_IPM_WASTEBASKET_ENTRYID]) && $storeprops[PR_IPM_WASTEBASKET_ENTRYID] !== $props[PR_PARENT_ENTRYID]) {
+			$this->moveFolderToWastebasket($store, $parentfolder, $props, $storeprops[PR_IPM_WASTEBASKET_ENTRYID], $id);
+
+			return;
+		}
+		// without DEL_MESSAGES gromox keeps folders with contents, without an error
+		if (!mapi_folder_deletefolder($parentfolder, $props[PR_ENTRYID], DEL_FOLDERS | DEL_MESSAGES)) {
+			if (mapi_last_hresult() == MAPI_E_NOT_FOUND) {
+				throw new NotFound(sprintf('Folder %s not found', $id));
+			}
+			$this->ThrowMapiError(sprintf('Unable to delete folder %s', $id));
+		}
+		// nor is an error reported when contents cannot be deleted
+		$hierarchy = mapi_folder_gethierarchytable($parentfolder, MAPI_DEFERRED_ERRORS);
+		foreach ($hierarchy ? mapi_table_queryallrows($hierarchy, [PR_ENTRYID]) : [] as $row) {
+			if (($row[PR_ENTRYID] ?? null) === $props[PR_ENTRYID]) {
+				$this->logger->info("Folder %s was not deleted completely", $id);
+
+				throw new Forbidden('Unable to delete all contents of the folder');
+			}
+		}
+	}
+
+	/**
+	 * Moves a folder with its subfolders to Deleted Items, with a new name if
+	 * the name is taken there.
+	 *
+	 * @param mixed  $store
+	 * @param mixed  $parentfolder
+	 * @param array  $props        PR_ENTRYID and PR_DISPLAY_NAME of the folder
+	 * @param string $wastebasketEntryid
+	 * @param string $id
+	 *
+	 * @throws DAVException if the folder cannot be moved
+	 */
+	private function moveFolderToWastebasket($store, $parentfolder, $props, $wastebasketEntryid, $id) {
+		$wastebasket = mapi_msgstore_openentry($store, $wastebasketEntryid);
+		if (!$wastebasket) {
+			$this->ThrowMapiError(sprintf('Unable to open Deleted Items to delete folder %s', $id));
+		}
+		$name = (string) ($props[PR_DISPLAY_NAME] ?? $id);
+		for ($i = 0; $i < 100; ++$i) {
+			$newName = $i === 0 ? $name : sprintf('%s (%d)', $name, $i);
+
+			try {
+				$moved = mapi_folder_copyfolder($parentfolder, $props[PR_ENTRYID], $wastebasket, $newName, FOLDER_MOVE);
+				$err = mapi_last_hresult();
+			}
+			catch (\MAPIException $e) {
+				$e->setHandled();
+				$moved = false;
+				$err = $e->getCode();
+			}
+			if ($moved) {
+				return;
+			}
+			if ($err != MAPI_E_COLLISION) {
+				if ($err == MAPI_E_NOT_FOUND) {
+					throw new NotFound(sprintf('Folder %s not found', $id));
+				}
+				$this->logger->error("Unable to move folder %s to Deleted Items: %s (0x%x)", $id, mapi_strerror($err), $err);
+				if ($err == MAPI_E_NO_ACCESS) {
+					throw new Forbidden(sprintf('Unable to delete folder %s', $id));
+				}
+
+				throw new DAVException(sprintf('Unable to delete folder %s', $id));
+			}
 		}
 
-		$props = mapi_getprops($folder, [PR_ENTRYID, PR_PARENT_ENTRYID]);
-		$parentfolder = mapi_msgstore_openentry($this->GetStoreById($id), $props[PR_PARENT_ENTRYID]);
-		mapi_folder_deletefolder($parentfolder, $props[PR_ENTRYID]);
-
-		return true;
+		throw new Forbidden(sprintf('Unable to find a free name in Deleted Items for folder %s', $id));
 	}
 
 	/**
@@ -162,6 +248,9 @@ class GrommunioDavBackend {
 		// TODO limit the output to subfolders of the principalUri?
 
 		$store = $this->GetStore($principalUri);
+		if (!$store) {
+			$this->throwOpenError(sprintf('Unable to open the store of %s', $principalUri));
+		}
 		$storeprops = mapi_getprops($store, [PR_IPM_WASTEBASKET_ENTRYID]);
 		$rootfolder = mapi_msgstore_openentry($store);
 		$hierarchy = mapi_folder_gethierarchytable($rootfolder, CONVENIENT_DEPTH | MAPI_DEFERRED_ERRORS);
@@ -211,31 +300,44 @@ class GrommunioDavBackend {
 				}
 			}
 		}
-		foreach ($rows as $row) {
+		$rows = array_filter($rows, function ($row) use ($storeprops) {
 			if ($row[PR_FOLDER_TYPE] == FOLDER_SEARCH) {
-				continue;
+				return false;
 			}
 			// visible without read permission, e.g. free/busy only
 			if (isset($row[PR_RIGHTS]) && !($row[PR_RIGHTS] & (ecRightsReadAny | ecRightsFolderAccess))) {
-				continue;
+				return false;
 			}
-			$folderId = $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]);
-			$syncToken = $this->GetCurrentSyncToken($folderId);
 
-			if (isset($row[PR_PARENT_ENTRYID], $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) && $row[PR_PARENT_ENTRYID] == $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) {
-				continue;
+			return !isset($row[PR_PARENT_ENTRYID], $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) || $row[PR_PARENT_ENTRYID] != $storeprops[PR_IPM_WASTEBASKET_ENTRYID];
+		});
+		$uris = static::GetFolderUris($rows, $davProps['davUri'], array_values($rootprops));
+		$marks = [];
+		foreach ($rows as $row) {
+			if (isset($row[PR_LOCAL_COMMIT_TIME_MAX])) {
+				$marks[bin2hex($row[PR_SOURCE_KEY])] = (string) $row[PR_LOCAL_COMMIT_TIME_MAX];
 			}
+		}
+		$syncTokens = $this->syncstate->getCurrentTokens($marks);
+
+		foreach ($rows as $row) {
+			$folderId = $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]);
+			// clients compare it to theirs to find out whether to sync
+			$syncToken = $syncTokens[bin2hex($row[PR_SOURCE_KEY])] ?? '0000000000';
 
 			$folder = [
 				'id' => $folderId,
-				'uri' => $row[PR_DISPLAY_NAME],
+				'uri' => $uris[$row[PR_SOURCE_KEY]],
 				'principaluri' => $principalUri,
 				'{http://sabredav.org/ns}sync-token' => $syncToken,
 				'{DAV:}displayname' => $row[PR_DISPLAY_NAME],
-				'{urn:ietf:params:xml:ns:caldav}calendar-description' => $row[PR_COMMENT],
-				'{urn:ietf:params:xml:ns:carddav}addressbook-description' => $row[PR_COMMENT],
 				'{http://calendarserver.org/ns/}getctag' => isset($row[PR_LOCAL_COMMIT_TIME_MAX]) ? strval($row[PR_LOCAL_COMMIT_TIME_MAX]) : '0000000000',
 			];
+			// folders without a comment have no PR_COMMENT
+			if (isset($row[PR_COMMENT])) {
+				$folder['{urn:ietf:params:xml:ns:caldav}calendar-description'] = $row[PR_COMMENT];
+				$folder['{urn:ietf:params:xml:ns:carddav}addressbook-description'] = $row[PR_COMMENT];
+			}
 
 			// set the supported component (task or calendar)
 			if ($row[PR_CONTAINER_CLASS] == "IPF.Task") {
@@ -290,45 +392,171 @@ class GrommunioDavBackend {
 	}
 
 	/**
+	 * Returns the URIs of folders.
+	 *
+	 * The URI of a folder is its name, or the name it had when a client
+	 * renamed it, so that its URL stays the same. Names with "/" and
+	 * names taken by another folder cannot be used, these folders are
+	 * addressed by their source key. A name is kept by a folder with a
+	 * kept URI first, then by a default folder, then by the lowest source
+	 * key.
+	 *
+	 * @param array $rows       folder properties incl. PR_SOURCE_KEY, PR_ENTRYID, PR_DISPLAY_NAME and $uriTag
+	 * @param int   $uriTag     tag of the named property with the URI
+	 * @param array $defaultIds entry ids of the default folders
+	 *
+	 * @return array URI by source key
+	 */
+	public static function GetFolderUris(array $rows, $uriTag, array $defaultIds = []) {
+		$candidates = [];
+		foreach ($rows as $row) {
+			$pinned = isset($row[$uriTag]) && $row[$uriTag] !== '';
+			$candidates[] = [
+				'sourcekey' => $row[PR_SOURCE_KEY],
+				'uri' => (string) ($pinned ? $row[$uriTag] : ($row[PR_DISPLAY_NAME] ?? '')),
+				'pinned' => $pinned,
+				'default' => isset($row[PR_ENTRYID]) && in_array($row[PR_ENTRYID], $defaultIds, true),
+			];
+		}
+		usort($candidates, fn ($a, $b) => [$b['pinned'], $b['default']] <=> [$a['pinned'], $a['default']] ?: strcmp($a['sourcekey'], $b['sourcekey']));
+
+		$uris = [];
+		$taken = [];
+		foreach ($candidates as $candidate) {
+			$uri = $candidate['uri'];
+			if ($uri === '' || $uri === '.' || $uri === '..' || strpos($uri, '/') !== false || isset($taken[$uri])) {
+				$uri = bin2hex($candidate['sourcekey']);
+			}
+			$taken[$uri] = true;
+			$uris[$candidate['sourcekey']] = $uri;
+		}
+
+		return $uris;
+	}
+
+	/**
+	 * Returns the URI of a folder as listed by GetFolders().
+	 *
+	 * @param string $folderId
+	 * @param array  $classes  container classes of the listing
+	 *
+	 * @return null|string
+	 */
+	public function GetFolderUri($folderId, $classes) {
+		$principalUri = explode(':', $folderId, 2)[0];
+		foreach ($this->GetFolders($principalUri, $classes) as $folder) {
+			if ($folder['id'] === $folderId) {
+				return $folder['uri'];
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Resolves MAPI named property tags for the Apple/DAV folder metadata stored in PSETID_GROMOX.
 	 *
 	 * @param mixed $store MAPI store
 	 *
-	 * @return array keys: calendarColor, calendarOrder, calendarTransp
+	 * @return array keys: calendarColor, calendarOrder, calendarTransp, davUri
 	 */
 	public function GetFolderDavProperties($store) {
 		return getPropIdsFromStrings($store, [
 			"calendarColor" => MapiProps::PROP_CALENDAR_COLOR,
 			"calendarOrder" => MapiProps::PROP_CALENDAR_ORDER,
 			"calendarTransp" => MapiProps::PROP_CALENDAR_TRANSP,
+			"davUri" => MapiProps::PROP_DAV_URI,
 		]);
 	}
 
 	/**
 	 * Applies a PROPPATCH-derived set of folder properties to the MAPI folder backing $folderId.
 	 *
-	 * Accepts a map of property tag => value. Values that are null cause the property to be deleted.
+	 * When the folder is renamed, its current URI is kept for it.
 	 *
-	 * @param string $folderId
-	 * @param array  $propsToSet    property tag => value
-	 * @param array  $propsToDelete property tags to delete
+	 * gromox refuses changes of folder properties unless the user owns the
+	 * store or the folder. Clients like Apple Calendar set their color and
+	 * order also on shared calendars and retry endlessly on errors, these
+	 * changes are skipped without an error. Only a refused rename is
+	 * reported, the folder keeps its name then.
 	 *
-	 * @return bool
+	 * @param string      $folderId
+	 * @param array       $propsToSet    property tag => value
+	 * @param array       $propsToDelete property tags to delete
+	 * @param null|string $uri           current URI of the folder, required to rename it unless it was created over DAV
+	 *
+	 * @return array tags of the properties not applied, empty on success
 	 */
-	public function UpdateFolderProperties($folderId, array $propsToSet, array $propsToDelete = []) {
+	public function UpdateFolderProperties($folderId, array $propsToSet, array $propsToDelete = [], $uri = null) {
 		$folder = $this->GetMapiFolder($folderId);
-		if (!$folder) {
-			return false;
+		$failed = [];
+		if (isset($propsToSet[PR_DISPLAY_NAME])) {
+			$uriTag = $this->GetFolderDavProperties($this->GetStoreById($folderId))['davUri'];
+			$props = mapi_getprops($folder, [PR_DISPLAY_NAME, $uriTag]);
+			if ($propsToSet[PR_DISPLAY_NAME] === ($props[PR_DISPLAY_NAME] ?? null)) {
+				unset($propsToSet[PR_DISPLAY_NAME]);
+			}
+			elseif (!isset($props[$uriTag])) {
+				if ($uri === null) {
+					$this->logger->error("Unable to rename folder %s without its URI", $folderId);
+					unset($propsToSet[PR_DISPLAY_NAME]);
+					$failed[] = PR_DISPLAY_NAME;
+				}
+				else {
+					$propsToSet[$uriTag] = $uri;
+				}
+			}
 		}
-		if (!empty($propsToSet)) {
-			mapi_setprops($folder, $propsToSet);
+		if (empty($propsToSet) && empty($propsToDelete)) {
+			return $failed;
 		}
-		if (!empty($propsToDelete)) {
-			mapi_deleteprops($folder, $propsToDelete);
-		}
-		mapi_savechanges($folder);
+		$saved = (empty($propsToSet) || mapi_setprops($folder, $propsToSet)) &&
+			(empty($propsToDelete) || mapi_deleteprops($folder, $propsToDelete)) &&
+			mapi_savechanges($folder);
+		if (!$saved) {
+			$err = mapi_last_hresult();
+			if ($err == MAPI_E_NO_ACCESS) {
+				$this->logger->info("No permission to change the properties of folder %s, skipped", $folderId);
 
-		return true;
+				return isset($propsToSet[PR_DISPLAY_NAME]) ? array_merge($failed, [PR_DISPLAY_NAME]) : $failed;
+			}
+			$this->logger->error("Unable to change the properties of folder %s: %s (0x%x)", $folderId, mapi_strerror($err), $err);
+
+			return array_merge($failed, array_keys($propsToSet), $propsToDelete);
+		}
+		// a name taken by another folder is not set, without an error
+		if (isset($propsToSet[PR_DISPLAY_NAME])) {
+			$props = mapi_getprops($folder, [PR_DISPLAY_NAME]);
+			if (($props[PR_DISPLAY_NAME] ?? null) !== $propsToSet[PR_DISPLAY_NAME]) {
+				$this->logger->info("Unable to rename folder %s to \"%s\"", $folderId, $propsToSet[PR_DISPLAY_NAME]);
+				$failed[] = PR_DISPLAY_NAME;
+			}
+		}
+
+		return $failed;
+	}
+
+	/**
+	 * Returns the result of a PROPPATCH for PropPatch::handle().
+	 *
+	 * @param array $mutations clark-notation property name => value
+	 * @param array $tags      MAPI property tag by clark-notation property name
+	 * @param array $failed    tags of the properties not applied, see UpdateFolderProperties()
+	 *
+	 * @return array clark-notation property name => HTTP status
+	 */
+	public static function GetPropPatchResult(array $mutations, array $tags, array $failed) {
+		$result = [];
+		foreach ($mutations as $name => $value) {
+			if (isset($tags[$name]) && in_array($tags[$name], $failed, true)) {
+				$result[$name] = 403;
+			}
+			else {
+				$result[$name] = $value === null ? 204 : 200;
+			}
+		}
+
+		return $result;
 	}
 
 	/**
@@ -407,9 +635,12 @@ class GrommunioDavBackend {
 	/**
 	 * Returns a list of objects for a folder given by the id.
 	 *
+	 * Besides the keys of Sabre, each object has the key "entryid" with
+	 * the hex entry id of its message.
+	 *
 	 * @param string $id
 	 * @param string $fileExtension
-	 * @param array  $filters
+	 * @param array  $filters       see getRestrictionForFilters(), "uid" restricts to calendar objects with this UID
 	 *
 	 * @return array
 	 */
@@ -418,11 +649,18 @@ class GrommunioDavBackend {
 		$properties = $this->GetCustomProperties($id);
 		$table = mapi_folder_getcontentstable($folder, MAPI_DEFERRED_ERRORS);
 		$restriction = $this->getRestrictionForFilters($filters, $this->GetStoreById($id));
+		if (isset($filters['uid'])) {
+			$goidRestriction = $this->getGoidRestriction($id, $filters['uid']);
+			if ($goidRestriction === null) {
+				return [];
+			}
+			$restriction = $restriction ? [RES_AND, [$restriction, $goidRestriction]] : $goidRestriction;
+		}
 		if ($restriction && !mapi_table_restrict($table, $restriction)) {
 			$this->ThrowMapiError('Unable to restrict the object list');
 		}
 
-		$rows = mapi_table_queryallrows($table, [PR_SOURCE_KEY, PR_LAST_MODIFICATION_TIME, PR_MESSAGE_SIZE, $properties['goid'], PR_SENSITIVITY, $properties['private']]);
+		$rows = mapi_table_queryallrows($table, [PR_ENTRYID, PR_SOURCE_KEY, PR_LAST_MODIFICATION_TIME, PR_MESSAGE_SIZE, $properties['goid'], PR_SENSITIVITY, $properties['private']]);
 
 		$results = [];
 		foreach ($rows as $row) {
@@ -443,6 +681,7 @@ class GrommunioDavBackend {
 				'etag' => '"' . $row[PR_LAST_MODIFICATION_TIME] . ($hidden ? '-p' : '') . '"',
 				'lastmodified' => $row[PR_LAST_MODIFICATION_TIME],
 				'size' => $row[PR_MESSAGE_SIZE], // only approximation
+				'entryid' => bin2hex($row[PR_ENTRYID]),
 			];
 
 			if ($fileExtension == GrommunioCalDavBackend::FILE_EXTENSION) {
@@ -502,18 +741,64 @@ class GrommunioDavBackend {
 	}
 
 	/**
-	 * Returns a mapi folder resource for a folderid (PR_SOURCE_KEY).
+	 * Checks whether the conversion of iCalendar or vCard data into a
+	 * message failed because of the data.
+	 *
+	 * gromox answers data it cannot convert with MAPI_E_CALL_FAILED, but
+	 * also a session it does not know (any more). The session is still
+	 * known if the message can be read.
+	 *
+	 * @param mixed $mapimessage the message of the failed conversion
+	 *
+	 * @return bool
+	 */
+	public function IsConversionError($mapimessage) {
+		if (mapi_last_hresult() != MAPI_E_CALL_FAILED) {
+			return false;
+		}
+
+		return is_array(mapi_getprops($mapimessage, [PR_MESSAGE_CLASS]));
+	}
+
+	/**
+	 * Throws the DAV exception for an object that cannot be opened.
+	 *
+	 * @param string $message
+	 *
+	 * @throws DAVException
+	 */
+	private function throwOpenError($message) {
+		$err = mapi_last_hresult();
+		$this->logger->info("%s: %s (0x%x)", $message, mapi_strerror($err), $err);
+		if ($err == MAPI_E_NO_ACCESS) {
+			throw new Forbidden($message);
+		}
+
+		throw new NotFound($message);
+	}
+
+	/**
+	 * Returns a mapi folder resource for a folderid (principal:PR_SOURCE_KEY).
 	 *
 	 * @param string $folderid
 	 *
 	 * @return mixed
+	 *
+	 * @throws DAVException if the folder cannot be opened
 	 */
 	public function GetMapiFolder($folderid) {
 		$this->logger->trace('Id: %s', $folderid);
-		$arr = explode(':', $folderid);
-		$entryid = mapi_msgstore_entryidfromsourcekey($this->GetStore($arr[0]), hex2bin($arr[1]));
+		$arr = explode(':', $folderid, 2);
+		$store = $this->GetStore($arr[0]);
+		$sourcekey = isset($arr[1]) && ctype_xdigit($arr[1]) && strlen($arr[1]) % 2 == 0 ? hex2bin($arr[1]) : false;
+		// an empty entry id would open the root folder
+		$entryid = $store && $sourcekey ? mapi_msgstore_entryidfromsourcekey($store, $sourcekey) : false;
+		$folder = $entryid ? mapi_msgstore_openentry($store, $entryid) : false;
+		if (!$folder) {
+			$this->throwOpenError(sprintf('Unable to open folder %s', $folderid));
+		}
 
-		return mapi_msgstore_openentry($this->GetStore($arr[0]), $entryid);
+		return $folder;
 	}
 
 	/**
@@ -582,9 +867,10 @@ class GrommunioDavBackend {
 		}
 		$this->logger->trace("storename %s", $storename);
 
-		/* We already got the store */
-		if (isset($this->stores[$storename]) && $this->stores[$storename] != null) {
-			return $this->stores[$storename];
+		/* We already got the store, under this or its SMTP name */
+		$key = strtolower($storename);
+		if (isset($this->stores[$key])) {
+			return $this->stores[$key];
 		}
 
 		$store = $this->OpenMapiStore($storename);
@@ -597,15 +883,18 @@ class GrommunioDavBackend {
 
 		// g-dav#61: always use SMTP address (issue with altnames)
 		$storeProps = mapi_getprops($store, [PR_MAILBOX_OWNER_ENTRYID]);
-		$addressbook = $this->getAddressbook();
-		$mailuser = mapi_ab_openentry($addressbook, $storeProps[PR_MAILBOX_OWNER_ENTRYID]);
-		$smtpProps = mapi_getprops($mailuser, [PR_SMTP_ADDRESS]);
+		$mailuser = isset($storeProps[PR_MAILBOX_OWNER_ENTRYID]) ? mapi_ab_openentry($this->GetAddressBook(), $storeProps[PR_MAILBOX_OWNER_ENTRYID]) : false;
+		$smtpProps = $mailuser ? mapi_getprops($mailuser, [PR_SMTP_ADDRESS]) : [];
 		if (isset($smtpProps[PR_SMTP_ADDRESS])) {
-			$storename = $this->user = $smtpProps[PR_SMTP_ADDRESS];
+			// only the logged on user, not the owners of other stores
+			if (strcasecmp($storename, $this->user) == 0) {
+				$this->user = $smtpProps[PR_SMTP_ADDRESS];
+			}
+			$this->stores[strtolower($smtpProps[PR_SMTP_ADDRESS])] = $store;
 		}
-		$this->stores[$storename] = $store;
+		$this->stores[$key] = $store;
 
-		return $this->stores[$storename];
+		return $store;
 	}
 
 	/**
@@ -714,32 +1003,22 @@ class GrommunioDavBackend {
 			if ($extension) {
 				if ($extension == GrommunioCalDavBackend::FILE_EXTENSION) {
 					$this->logger->trace("Try goid %s", $id);
-					$goids = [];
-					$goids[] = getGoidFromUid($id);
-					$goids[] = getGoidFromUidZero($id);
+					$uids = [$id];
 					// Sometimes Thunderbird urlencodes the URI part
 					if (urldecode($id) !== $id) {
-						$goids[] = getGoidFromUid(urldecode($id));
-						$goids[] = getGoidFromUidZero(urldecode($id));
+						$uids[] = urldecode($id);
 					}
 					// In some cases Thunderbird replaces "@"-sign in UID with an underscore "_" in the URI part, e.g.:
 					// PUT 12345678-ABCD_bahn.de.ics
 					// UID:12345678-ABCD@bahn.de
 					$underscoreCnt = substr_count($id, '_');
 					if ($underscoreCnt === 1) {
-						$goids[] = getGoidFromUid(str_replace('_', '@', $id));
-						$goids[] = getGoidFromUidZero(str_replace('_', '@', $id));
+						$uids[] = str_replace('_', '@', $id);
 					}
-					$goidRestrictions = [];
-					foreach ($goids as $goid) {
-						// an empty value would match unrelated messages carrying an empty goid property
-						if (!is_string($goid) || $goid === '') {
-							continue;
-						}
-						$this->logger->trace("Try goid 0x%08X => %s", $properties["goid"], bin2hex($goid));
-						$goidRestrictions[] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid]];
+					$goidRestriction = $this->getGoidRestriction($folderId, $uids);
+					if ($goidRestriction !== null) {
+						$restriction[] = $goidRestriction;
 					}
-					$restriction[] = [RES_OR, $goidRestrictions];
 				}
 				elseif ($extension == GrommunioCardDavBackend::FILE_EXTENSION) {
 					$this->logger->trace("Try vcarduid %s", $id);
@@ -808,6 +1087,31 @@ class GrommunioDavBackend {
 		$this->logger->debug("Nothing found for %s", $id);
 
 		return null;
+	}
+
+	/**
+	 * Returns a restriction for messages with a goid of one of the UIDs.
+	 *
+	 * @param string       $folderId
+	 * @param array|string $uids
+	 *
+	 * @return null|array null if no goid can be derived
+	 */
+	private function getGoidRestriction($folderId, $uids) {
+		$properties = $this->GetCustomProperties($folderId);
+		$restrictions = [];
+		foreach ((array) $uids as $uid) {
+			foreach ([getGoidFromUid($uid), getGoidFromUidZero($uid)] as $goid) {
+				// an empty value would match unrelated messages carrying an empty goid property
+				if (!is_string($goid) || $goid === '') {
+					continue;
+				}
+				$this->logger->trace("Try goid 0x%08X => %s", $properties["goid"], bin2hex($goid));
+				$restrictions[] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid]];
+			}
+		}
+
+		return empty($restrictions) ? null : [RES_OR, $restrictions];
 	}
 
 	/**
@@ -951,13 +1255,13 @@ class GrommunioDavBackend {
 	 * Performs ICS based sync used from getChangesForAddressBook
 	 * / getChangesForCalendar.
 	 *
-	 * @param string $folderId
-	 * @param string $syncToken
-	 * @param string $fileExtension
-	 * @param int    $limit
-	 * @param array  $filters
+	 * @param string      $folderId
+	 * @param null|string $syncToken
+	 * @param string      $fileExtension
+	 * @param null|int    $limit
+	 * @param array       $filters
 	 *
-	 * @return null|array
+	 * @return null|array null if the sync token is unknown or the changes cannot be exported
 	 */
 	public function Sync($folderId, $syncToken, $fileExtension, $limit = null, $filters = []) {
 		$arr = explode(':', $folderId);
@@ -965,6 +1269,9 @@ class GrommunioDavBackend {
 		$mapiimporter = mapi_wrap_importcontentschanges($phpwrapper);
 
 		$mapifolder = $this->GetMapiFolder($folderId);
+		// before the export, changes during it make the state outdated
+		$folderProps = mapi_getprops($mapifolder, [PR_LOCAL_COMMIT_TIME_MAX]);
+		$mark = static::GetSyncMark($folderProps[PR_LOCAL_COMMIT_TIME_MAX] ?? null, time());
 		$exporter = mapi_openproperty($mapifolder, PR_CONTENTS_SYNCHRONIZER, IID_IExchangeExportChanges, 0, 0);
 		if (!$exporter) {
 			$this->logger->error("Unable to get exporter");
@@ -992,15 +1299,17 @@ class GrommunioDavBackend {
 
 		// The last parameter in mapi_exportchanges_config is buffer size for mapi_exportchanges_synchronize - how many
 		// changes will be processed in its call. Setting it to MAX_SYNC_ITEMS won't export more items than is set in
-		// the config. If there are more changes than MAX_SYNC_ITEMS the client will eventually catch up and sync
-		// the rest on the subsequent sync request(s).
+		// the config. If there are more changes than MAX_SYNC_ITEMS the result is marked as truncated, the client
+		// then syncs the rest with the returned token in subsequent requests.
 		$bufferSize = ($limit !== null && $limit > 0) ? $limit : MAX_SYNC_ITEMS;
 		mapi_exportchanges_config($exporter, $stream, SYNC_NORMAL | SYNC_UNICODE, $mapiimporter, $restriction, false, false, $bufferSize);
 		$changesCount = mapi_exportchanges_getchangecount($exporter);
 		$this->logger->debug("Exporter found %d changes, buffer size for mapi_exportchanges_synchronize %d", $changesCount, $bufferSize);
+		$truncated = false;
 		while (is_array(mapi_exportchanges_synchronize($exporter))) {
 			if ($changesCount > $bufferSize) {
 				$this->logger->info("There were too many changes to be exported in this request. Total changes %d, exported %d.", $changesCount, $phpwrapper->Total());
+				$truncated = true;
 
 				break;
 			}
@@ -1021,15 +1330,25 @@ class GrommunioDavBackend {
 			}
 		}
 
-		$newtoken = ($phpwrapper->Total() > 0) ? uniqid() : $syncToken;
-
-		$this->syncstate->setState($arr[1], $newtoken, bin2hex($state));
+		// an initial sync gets a token of its own, also without any objects
+		$initial = $syncToken == null || $syncToken == '0000000000';
+		$newtoken = ($phpwrapper->Total() > 0 || $initial) ? uniqid() : $syncToken;
+		// a client in sync gets the current token of the collection, so it
+		// does not sync again because of a token issued to another client
+		$current = $newtoken === $syncToken && !$truncated ? ($this->syncstate->getCurrentTokens([$arr[1] => $mark])[$arr[1]] ?? null) : null;
+		if ($current !== null) {
+			$newtoken = $current;
+		}
+		else {
+			$this->syncstate->setState($arr[1], $newtoken, bin2hex($state), $truncated ? '' : $mark);
+		}
 
 		$result = [
 			"syncToken" => $newtoken,
 			"added" => $phpwrapper->GetAdded(),
 			"modified" => $phpwrapper->GetModified(),
 			"deleted" => $phpwrapper->GetDeleted(),
+			"result_truncated" => $truncated,
 		];
 
 		$this->logger->trace("Returning %s", $result);
@@ -1065,21 +1384,20 @@ class GrommunioDavBackend {
 	}
 
 	/**
-	 * Returns the current sync-token for the folder if one was issued.
+	 * Returns the mark of the sync state of a folder, see
+	 * GrommunioSyncStateStore::getCurrentTokens().
 	 *
-	 * @param string $folderId composite id in form principal:sourcekey
+	 * The state of the folder is its last change, in seconds. A state is
+	 * only marked when no other change can happen within the same second,
+	 * with a margin for the clocks of the servers.
 	 *
-	 * @return string
+	 * @param null|int $commitTime PR_LOCAL_COMMIT_TIME_MAX of the folder before the export
+	 * @param int      $now
+	 *
+	 * @return string empty if the state cannot be marked
 	 */
-	public function GetCurrentSyncToken($folderId) {
-		$arr = explode(':', $folderId, 2);
-		if (count($arr) < 2 || $arr[1] === '') {
-			return '0000000000';
-		}
-
-		$token = $this->syncstate->getCurrentToken($arr[1]);
-
-		return (!is_string($token) || $token === '') ? '0000000000' : $token;
+	public static function GetSyncMark($commitTime, $now) {
+		return ($commitTime !== null && $now - $commitTime >= self::SYNC_MARK_MARGIN) ? (string) $commitTime : '';
 	}
 
 	/**
@@ -1088,7 +1406,11 @@ class GrommunioDavBackend {
 	 * @return bool
 	 */
 	private function isGdavEnabled() {
-		$storeProps = mapi_getprops($this->GetStore($this->GetUser()), [PR_EC_ENABLED_FEATURES_L]);
+		$store = $this->GetStore($this->GetUser());
+		if (!$store) {
+			return false;
+		}
+		$storeProps = mapi_getprops($store, [PR_EC_ENABLED_FEATURES_L]);
 		if (($storeProps[PR_EC_ENABLED_FEATURES_L] ?? 0) & UP_DAV) {
 			$this->logger->debug("user %s is enabled for grommunio-dav", $this->user);
 

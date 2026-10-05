@@ -236,7 +236,9 @@ class GLogger {
 			if (is_array($arg)) {
 				$outArgs[] = print_r($arg, true);
 			}
-			$outArgs[] = $arg;
+			else {
+				$outArgs[] = $arg;
+			}
 		}
 		// Call sprintf() with the arguments only if there are format parameters because
 		// otherwise sprintf will complain about too few arguments.

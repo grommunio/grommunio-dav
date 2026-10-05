@@ -19,6 +19,8 @@ class MapiProps {
 	public const PROP_CALENDAR_ORDER = "PT_LONG:PSETID_GROMOX:dav-calendar-order";
 	// schedule-calendar-transp: false (or unset) => opaque, true => transparent.
 	public const PROP_CALENDAR_TRANSP = "PT_BOOLEAN:PSETID_GROMOX:dav-calendar-transp";
+	// URI of a folder renamed by a client, its name before
+	public const PROP_DAV_URI = "PT_UNICODE:PSETID_GROMOX:dav-uri";
 
 	/**
 	 * Returns appointment specific MAPI properties
