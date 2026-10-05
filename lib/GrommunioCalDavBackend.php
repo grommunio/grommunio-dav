@@ -418,11 +418,13 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			$ics = mapi_mapitoical($session, $ab, $mapimessage, []);
 		}
 		if (!$ics && mapi_last_hresult()) {
-			$this->logger->error("Error generating ical, error code: 0x%08X", mapi_last_hresult());
+			$err = mapi_last_hresult();
+			$this->logger->error("Error generating iCal: %s (0x%x)",
+				mapi_strerror($err), $err);
 			$ics = null;
 		}
 		elseif (!$ics) {
-			$this->logger->error("Error generating ical, unknown error");
+			$this->logger->error("Error generating iCal: unknown error");
 			$ics = null;
 		}
 

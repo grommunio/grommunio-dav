@@ -238,8 +238,9 @@ class DistList {
 
 		mapi_deleteprops($mapimessage, $delete);
 		if (!mapi_setprops($mapimessage, $props)) {
-			$this->logger->error("DistList: unable to set properties: 0x%08X", mapi_last_hresult());
-
+			$err = mapi_last_hresult();
+			$this->logger->error("DistList: unable to set properties: %s (0x%x)",
+				mapi_strerror($err), $err);
 			return false;
 		}
 

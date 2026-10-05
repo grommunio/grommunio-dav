@@ -204,7 +204,9 @@ class GrommunioDavBackend {
 						$rows[] = mapi_getprops($subtreeFolder, $queryCols);
 					}
 					catch (\Throwable $t) {
-						$this->logger->debug("Error getting folder of class'%s' (%s) - 0x%08X: %s", $class, bin2hex($folderEntryId), mapi_last_hresult(), $t);
+						$err = mapi_last_hresult();
+						$this->logger->debug("Getting folder of class \"%s\" (entryid %s): %s (0x%x) - %s",
+							$class, bin2hex($folderEntryId), mapi_strerror($err), $err, $t);
 					}
 				}
 			}
@@ -490,9 +492,9 @@ class GrommunioDavBackend {
 	 * @throws DAVException
 	 */
 	public function ThrowMapiError($message) {
-		$hresult = mapi_last_hresult();
-		$this->logger->error("%s: 0x%08X", $message, $hresult);
-		if ($hresult == MAPI_E_NO_ACCESS) {
+		$err = mapi_last_hresult();
+		$this->logger->error("%s: %s (0x%x)", $message, mapi_strerror($err), $err);
+		if ($err == MAPI_E_NO_ACCESS) {
 			throw new Forbidden($message);
 		}
 
@@ -587,8 +589,9 @@ class GrommunioDavBackend {
 
 		$store = $this->OpenMapiStore($storename);
 		if (!$store) {
-			$this->logger->info("Auth: ERROR - unable to open store for %s (0x%08X)", $storename, mapi_last_hresult());
-
+			$err = mapi_last_hresult();
+			$this->logger->info("Auth: Unable to open store for \"%s\": %s (0x%x)",
+				$storename, mapi_strerror($err), $err);
 			return false;
 		}
 
@@ -755,7 +758,9 @@ class GrommunioDavBackend {
 				$rows = mapi_table_queryallrows($table, $proplist);
 			}
 			else {
-				$this->logger->error("Unable to restrict the table searching for '%s': 0x%08X", $id, mapi_last_hresult());
+				$err = mapi_last_hresult();
+				$this->logger->error("Table restriction for search keyword \"%s\" failed: %s (0x%x)",
+					$id, mapi_strerror($err), $err);
 				$rows = [];
 			}
 			if (count($rows) > 1) {
