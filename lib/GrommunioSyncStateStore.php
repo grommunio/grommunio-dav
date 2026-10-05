@@ -10,9 +10,6 @@
  * "GD-SyncState" below the root of the store, as grommunio-sync does it.
  * Deleting that folder resets all sync states of the user; clients then
  * sync their collections again.
- *
- * States and URLs not found there are looked up in the SQLite database
- * used before (SYNC_DB), so clients continue to sync after the switch.
  */
 
 namespace grommunio\DAV;
@@ -29,7 +26,6 @@ class GrommunioSyncStateStore {
 
 	private $logger;
 	private $gDavBackend;
-	private $legacy;
 	private $store;
 	private $folder;
 	private $properties;
@@ -38,13 +34,11 @@ class GrommunioSyncStateStore {
 	/**
 	 * Constructor.
 	 *
-	 * @param GLogger                 $logger
-	 * @param null|GrommunioSyncState $legacy the SQLite state used before
+	 * @param GLogger $logger
 	 */
-	public function __construct($logger, GrommunioDavBackend $gDavBackend, $legacy = null) {
+	public function __construct($logger, GrommunioDavBackend $gDavBackend) {
 		$this->logger = $logger;
 		$this->gDavBackend = $gDavBackend;
-		$this->legacy = $legacy;
 	}
 
 	/**
@@ -58,7 +52,7 @@ class GrommunioSyncStateStore {
 	public function getState($folderid, $id) {
 		$row = $this->findRow(self::STATE_CLASS, ['folder' => $folderid, 'token' => $id], [], true);
 		if (!isset($row[PR_ENTRYID])) {
-			return $this->legacy?->getState($folderid, $id);
+			return null;
 		}
 		// tables may cut long values, read it from the message
 		$message = mapi_msgstore_openentry($this->store, $row[PR_ENTRYID]);
@@ -107,8 +101,7 @@ class GrommunioSyncStateStore {
 	 * @return null|string
 	 */
 	public function getAppttsref($folderid, $sourcekey) {
-		return $this->getUrls($folderid)[$sourcekey] ??
-			$this->legacy?->getAppttsref($folderid, $sourcekey);
+		return $this->getUrls($folderid)[$sourcekey] ?? null;
 	}
 
 	/**
@@ -123,13 +116,13 @@ class GrommunioSyncStateStore {
 	public function getSourcekey($folderid, $appttsref) {
 		$row = $this->findRow(self::URL_CLASS, ['folder' => $folderid, 'url' => $appttsref], ['sourcekey']);
 
-		return $row['sourcekey'] ?? $this->legacy?->getSourcekey($folderid, $appttsref);
+		return $row['sourcekey'] ?? null;
 	}
 
 	/**
 	 * The token only changes when a client syncs, not when the folder does,
 	 * so it is not offered as the current one of a collection: clients
-	 * comparing it would miss changes. Same as with the SQLite state.
+	 * comparing it would miss changes.
 	 *
 	 * @param string $folderId
 	 */

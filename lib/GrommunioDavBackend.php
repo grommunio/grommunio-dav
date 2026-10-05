@@ -31,9 +31,7 @@ class GrommunioDavBackend {
 	 */
 	public function __construct(GLogger $glogger) {
 		$this->logger = $glogger;
-		$legacy = strlen(SYNC_DB) > 0 ? new GrommunioSyncState($glogger, SYNC_DB) : null;
-		$this->syncstate = defined('SYNC_STATE') && SYNC_STATE === 'sqlite' && $legacy !== null ?
-			$legacy : new GrommunioSyncStateStore($glogger, $this, $legacy);
+		$this->syncstate = new GrommunioSyncStateStore($glogger, $this);
 	}
 
 	/**
@@ -961,7 +959,8 @@ class GrommunioDavBackend {
 		else {
 			$value = $this->syncstate->getState($arr[1], $syncToken);
 			if ($value === null) {
-				$this->logger->error("Unable to get value from token: %s - folderId: %s", $syncToken, $folderId);
+				// e.g. removed after a long time or from before the update
+				$this->logger->info("Unknown sync token %s for %s, the client syncs again", $syncToken, $folderId);
 
 				return null;
 			}
