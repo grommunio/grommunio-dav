@@ -24,12 +24,12 @@ class PHPWrapper {
 	/**
 	 * Constructor.
 	 *
-	 * @param mixed              $store
-	 * @param GLogger            $logger
-	 * @param mixed              $props
-	 * @param string             $fileext
-	 * @param GrommunioSyncState $syncstate
-	 * @param string             $folderid
+	 * @param mixed                   $store
+	 * @param GLogger                 $logger
+	 * @param mixed                   $props
+	 * @param string                  $fileext
+	 * @param GrommunioSyncStateStore $syncstate
+	 * @param string                  $folderid
 	 */
 	public function __construct($store, $logger, $props, $fileext, $syncstate, $folderid) {
 		$this->store = $store;

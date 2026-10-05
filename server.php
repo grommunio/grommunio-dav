@@ -85,9 +85,7 @@ $server->addPlugin(new Plugin());
 $caldavPlugin = new \Sabre\CalDAV\Plugin();
 $server->addPlugin($caldavPlugin);
 
-if (strlen(SYNC_DB) > 0) {
-	$server->addPlugin(new \Sabre\DAV\Sync\Plugin());
-}
+$server->addPlugin(new \Sabre\DAV\Sync\Plugin());
 
 if (DEVELOPER_MODE) {
 	$server->addPlugin(new \Sabre\DAV\Browser\Plugin(false));

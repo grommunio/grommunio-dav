@@ -8,7 +8,7 @@
  *
  * Provides a shared, per-server cache of GAL entries so that every
  * authenticated user reads from the same dataset.  The cache is stored
- * in the same SQLite database as the sync state (SYNC_DB).
+ * in the SQLite database SYNC_DB.
  */
 
 namespace grommunio\DAV;
