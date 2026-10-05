@@ -225,24 +225,26 @@ class GrommunioDavBackend {
 				}
 			}
 		}
-		foreach ($rows as $row) {
+		$rows = array_filter($rows, function ($row) use ($storeprops) {
 			if ($row[PR_FOLDER_TYPE] == FOLDER_SEARCH) {
-				continue;
+				return false;
 			}
 			// visible without read permission, e.g. free/busy only
 			if (isset($row[PR_RIGHTS]) && !($row[PR_RIGHTS] & (ecRightsReadAny | ecRightsFolderAccess))) {
-				continue;
+				return false;
 			}
+
+			return !isset($row[PR_PARENT_ENTRYID], $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) || $row[PR_PARENT_ENTRYID] != $storeprops[PR_IPM_WASTEBASKET_ENTRYID];
+		});
+		$uris = static::GetFolderUris($rows, array_values($rootprops));
+
+		foreach ($rows as $row) {
 			$folderId = $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]);
 			$syncToken = $this->GetCurrentSyncToken($folderId);
 
-			if (isset($row[PR_PARENT_ENTRYID], $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) && $row[PR_PARENT_ENTRYID] == $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) {
-				continue;
-			}
-
 			$folder = [
 				'id' => $folderId,
-				'uri' => $row[PR_DISPLAY_NAME],
+				'uri' => $uris[$row[PR_SOURCE_KEY]],
 				'principaluri' => $principalUri,
 				'{http://sabredav.org/ns}sync-token' => $syncToken,
 				'{DAV:}displayname' => $row[PR_DISPLAY_NAME],
@@ -304,6 +306,44 @@ class GrommunioDavBackend {
 		$this->logger->trace('found %d folders: %s', count($folders), $folders);
 
 		return $folders;
+	}
+
+	/**
+	 * Returns the URIs of folders.
+	 *
+	 * The URI of a folder is its name. Names with "/" and names taken by
+	 * another folder cannot be used, these folders are addressed by their
+	 * source key. A name is kept by a default folder first, then by the
+	 * folder with the lowest source key.
+	 *
+	 * @param array $rows       folder properties incl. PR_SOURCE_KEY, PR_ENTRYID and PR_DISPLAY_NAME
+	 * @param array $defaultIds entry ids of the default folders
+	 *
+	 * @return array URI by source key
+	 */
+	public static function GetFolderUris(array $rows, array $defaultIds = []) {
+		$candidates = [];
+		foreach ($rows as $row) {
+			$candidates[] = [
+				'sourcekey' => $row[PR_SOURCE_KEY],
+				'uri' => (string) ($row[PR_DISPLAY_NAME] ?? ''),
+				'default' => isset($row[PR_ENTRYID]) && in_array($row[PR_ENTRYID], $defaultIds, true),
+			];
+		}
+		usort($candidates, fn ($a, $b) => $b['default'] <=> $a['default'] ?: strcmp($a['sourcekey'], $b['sourcekey']));
+
+		$uris = [];
+		$taken = [];
+		foreach ($candidates as $candidate) {
+			$uri = $candidate['uri'];
+			if ($uri === '' || $uri === '.' || $uri === '..' || strpos($uri, '/') !== false || isset($taken[$uri])) {
+				$uri = bin2hex($candidate['sourcekey']);
+			}
+			$taken[$uri] = true;
+			$uris[$candidate['sourcekey']] = $uri;
+		}
+
+		return $uris;
 	}
 
 	/**
