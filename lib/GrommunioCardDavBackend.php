@@ -83,33 +83,43 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		];
 
 		$propPatch->handle($supportedProperties, function ($mutations) use ($addressBookId) {
-			return $this->applyAddressBookProperties($addressBookId, $mutations);
+			$uri = isset($mutations['{DAV:}displayname']) ? $this->gDavBackend->GetFolderUri($addressBookId, static::CONTAINER_CLASSES) : null;
+
+			return $this->applyAddressBookProperties($addressBookId, $mutations, $uri);
 		});
 	}
 
 	/**
 	 * Persists PROPPATCH-derived properties on the MAPI folder backing the address book.
 	 *
-	 * @param string $folderId
-	 * @param array  $mutations clark-notation property name => value
+	 * The displayname renames the folder, its URI is kept.
 	 *
-	 * @return bool
+	 * @param string      $folderId
+	 * @param array       $mutations clark-notation property name => value
+	 * @param null|string $uri       current URI of the folder, required for the displayname of folders not created over DAV
+	 *
+	 * @return array clark-notation property name => HTTP status
 	 */
-	private function applyAddressBookProperties($folderId, array $mutations) {
+	private function applyAddressBookProperties($folderId, array $mutations, $uri = null) {
 		if (empty($mutations)) {
-			return true;
+			return [];
 		}
 
 		$propsToSet = [];
 		$propsToDelete = [];
+		// MAPI property tag by clark-notation property name
+		$tags = [];
+		$result = [];
 
 		foreach ($mutations as $propertyName => $propertyValue) {
 			switch ($propertyName) {
 				case '{DAV:}displayname':
 					if ($propertyValue === null || $propertyValue === '') {
-						return false;
+						$result[$propertyName] = 403;
+						break;
 					}
 					$propsToSet[PR_DISPLAY_NAME] = (string) $propertyValue;
+					$tags[$propertyName] = PR_DISPLAY_NAME;
 					break;
 
 				case '{urn:ietf:params:xml:ns:carddav}addressbook-description':
@@ -119,6 +129,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 					else {
 						$propsToSet[PR_COMMENT] = (string) $propertyValue;
 					}
+					$tags[$propertyName] = PR_COMMENT;
 					break;
 
 				default:
@@ -127,7 +138,9 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 			}
 		}
 
-		return $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete);
+		$failed = $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete, $uri);
+
+		return $result + GrommunioDavBackend::GetPropPatchResult($mutations, $tags, $failed);
 	}
 
 	/**
@@ -144,8 +157,14 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	public function createAddressBook($principalUri, $url, array $properties) {
 		$this->logger->trace("principalUri: %s - url: %s - properties: %s", $principalUri, $url, $properties);
 
-		// TODO Add displayname
-		return $this->gDavBackend->CreateFolder($principalUri, $url, static::CONTAINER_CLASS, "");
+		$folderId = $this->gDavBackend->CreateFolder($principalUri, $url, static::CONTAINER_CLASS, "");
+		// the folder is named like the URI, which is kept when the displayname renames it
+		$this->applyAddressBookProperties($folderId, array_intersect_key($properties, [
+			'{DAV:}displayname' => true,
+			'{urn:ietf:params:xml:ns:carddav}addressbook-description' => true,
+		]));
+
+		return $folderId;
 	}
 
 	/**

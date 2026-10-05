@@ -113,10 +113,10 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			}
 		}
 
-		// TODO Add displayname
 		$folderId = $this->gDavBackend->CreateFolder($principalUri, $calendarUri, $containerClass, "");
 
 		// Apply Apple/DAV metadata submitted during MKCALENDAR (color, order, displayname, transp).
+		// The folder is named like the URI, which is kept when the displayname renames it.
 		$this->applyCalendarProperties($folderId, $properties);
 
 		return $folderId;
@@ -130,7 +130,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 * Sabre default returns 403 Forbidden for each unknown property, which causes Apple clients to fall
 	 * into a resync loop.
 	 *
-	 * @param mixed $calendarId
+	 * @param string $calendarId
 	 */
 	public function updateCalendar($calendarId, PropPatch $propPatch) {
 		$this->logger->trace("calendarId: %s", $calendarId);
@@ -144,39 +144,49 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		];
 
 		$propPatch->handle($supportedProperties, function ($mutations) use ($calendarId) {
-			return $this->applyCalendarProperties($calendarId, $mutations);
+			$uri = isset($mutations['{DAV:}displayname']) ? $this->gDavBackend->GetFolderUri($calendarId, static::CONTAINER_CLASSES) : null;
+
+			return $this->applyCalendarProperties($calendarId, $mutations, $uri);
 		});
 	}
 
 	/**
 	 * Translates DAV/Apple calendar properties into MAPI properties and stores them on the folder.
 	 *
-	 * @param string $folderId
-	 * @param array  $mutations map of clark-notation property name => value (null = remove)
+	 * The displayname renames the folder, its URI is kept.
 	 *
-	 * @return bool
+	 * @param string      $folderId
+	 * @param array       $mutations map of clark-notation property name => value (null = remove)
+	 * @param null|string $uri       current URI of the folder, required for the displayname of folders not created over DAV
+	 *
+	 * @return array clark-notation property name => HTTP status
 	 */
-	private function applyCalendarProperties($folderId, array $mutations) {
+	private function applyCalendarProperties($folderId, array $mutations, $uri = null) {
 		if (empty($mutations)) {
-			return true;
+			return [];
 		}
 
 		$store = $this->gDavBackend->GetStoreById($folderId);
 		if (!$store) {
-			return false;
+			return array_fill_keys(array_keys($mutations), 403);
 		}
 		$davProps = $this->gDavBackend->GetFolderDavProperties($store);
 
 		$propsToSet = [];
 		$propsToDelete = [];
+		// MAPI property tag by clark-notation property name
+		$tags = [];
+		$result = [];
 
 		foreach ($mutations as $propertyName => $propertyValue) {
 			switch ($propertyName) {
 				case '{DAV:}displayname':
 					if ($propertyValue === null || $propertyValue === '') {
-						return false;
+						$result[$propertyName] = 403;
+						break;
 					}
 					$propsToSet[PR_DISPLAY_NAME] = (string) $propertyValue;
+					$tags[$propertyName] = PR_DISPLAY_NAME;
 					break;
 
 				case '{urn:ietf:params:xml:ns:caldav}calendar-description':
@@ -186,6 +196,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 					else {
 						$propsToSet[PR_COMMENT] = (string) $propertyValue;
 					}
+					$tags[$propertyName] = PR_COMMENT;
 					break;
 
 				case '{http://apple.com/ns/ical/}calendar-color':
@@ -195,6 +206,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 					else {
 						$propsToSet[$davProps['calendarColor']] = (string) $propertyValue;
 					}
+					$tags[$propertyName] = $davProps['calendarColor'];
 					break;
 
 				case '{http://apple.com/ns/ical/}calendar-order':
@@ -204,6 +216,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 					else {
 						$propsToSet[$davProps['calendarOrder']] = (int) (string) $propertyValue;
 					}
+					$tags[$propertyName] = $davProps['calendarOrder'];
 					break;
 
 				case '{urn:ietf:params:xml:ns:caldav}schedule-calendar-transp':
@@ -217,6 +230,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 					else {
 						$propsToSet[$davProps['calendarTransp']] = ($value === 'transparent');
 					}
+					$tags[$propertyName] = $davProps['calendarTransp'];
 					break;
 
 				default:
@@ -227,7 +241,9 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			}
 		}
 
-		return $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete);
+		$failed = $this->gDavBackend->UpdateFolderProperties($folderId, $propsToSet, $propsToDelete, $uri);
+
+		return $result + GrommunioDavBackend::GetPropPatchResult($mutations, $tags, $failed);
 	}
 
 	/**

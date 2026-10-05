@@ -106,13 +106,13 @@ class GrommunioDavBackend {
 	 * Create a folder with MAPI class.
 	 *
 	 * @param mixed  $principalUri
-	 * @param string $url
+	 * @param string $url          the name and URI of the folder
 	 * @param string $class
-	 * @param string $displayname
+	 * @param string $comment
 	 *
-	 * @return string
+	 * @return string the folder id (principal:sourcekey)
 	 */
-	public function CreateFolder($principalUri, $url, $class, $displayname) {
+	public function CreateFolder($principalUri, $url, $class, $comment) {
 		$store = $this->GetStore($principalUri);
 		if (!$store) {
 			$this->throwOpenError(sprintf('Unable to open the store of %s', $principalUri));
@@ -122,20 +122,22 @@ class GrommunioDavBackend {
 		if (!$folder) {
 			$this->throwOpenError('Unable to open the IPM subtree');
 		}
-		$newfolder = mapi_folder_createfolder($folder, $url, $displayname);
+		$newfolder = mapi_folder_createfolder($folder, $url, $comment);
 		if (!$newfolder) {
 			$this->ThrowMapiError('Unable to create folder');
 		}
-		mapi_setprops($newfolder, [PR_CONTAINER_CLASS => $class]);
+		// the URI is kept when a client renames the folder
+		$davProps = $this->GetFolderDavProperties($store);
+		mapi_setprops($newfolder, [PR_CONTAINER_CLASS => $class, $davProps['davUri'] => $url]);
 		// Return the composite folder id (principal:sourcekey) so callers that need to address the
 		// freshly created folder via GetMapiFolder()/UpdateFolderProperties() can do so without
 		// another round-trip. The original URL is still used by Sabre as the URI segment.
 		$newprops = mapi_getprops($newfolder, [PR_SOURCE_KEY]);
-		if (isset($newprops[PR_SOURCE_KEY])) {
-			return $principalUri . ':' . bin2hex($newprops[PR_SOURCE_KEY]);
+		if (!isset($newprops[PR_SOURCE_KEY])) {
+			$this->ThrowMapiError('Unable to get the source key of the new folder');
 		}
 
-		return $url;
+		return $principalUri . ':' . bin2hex($newprops[PR_SOURCE_KEY]);
 	}
 
 	/**
@@ -236,7 +238,7 @@ class GrommunioDavBackend {
 
 			return !isset($row[PR_PARENT_ENTRYID], $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) || $row[PR_PARENT_ENTRYID] != $storeprops[PR_IPM_WASTEBASKET_ENTRYID];
 		});
-		$uris = static::GetFolderUris($rows, array_values($rootprops));
+		$uris = static::GetFolderUris($rows, $davProps['davUri'], array_values($rootprops));
 
 		foreach ($rows as $row) {
 			$folderId = $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]);
@@ -311,26 +313,31 @@ class GrommunioDavBackend {
 	/**
 	 * Returns the URIs of folders.
 	 *
-	 * The URI of a folder is its name. Names with "/" and names taken by
-	 * another folder cannot be used, these folders are addressed by their
-	 * source key. A name is kept by a default folder first, then by the
-	 * folder with the lowest source key.
+	 * The URI of a folder is its name, or the name it had when a client
+	 * renamed it, so that its URL stays the same. Names with "/" and
+	 * names taken by another folder cannot be used, these folders are
+	 * addressed by their source key. A name is kept by a folder with a
+	 * kept URI first, then by a default folder, then by the lowest source
+	 * key.
 	 *
-	 * @param array $rows       folder properties incl. PR_SOURCE_KEY, PR_ENTRYID and PR_DISPLAY_NAME
+	 * @param array $rows       folder properties incl. PR_SOURCE_KEY, PR_ENTRYID, PR_DISPLAY_NAME and $uriTag
+	 * @param int   $uriTag     tag of the named property with the URI
 	 * @param array $defaultIds entry ids of the default folders
 	 *
 	 * @return array URI by source key
 	 */
-	public static function GetFolderUris(array $rows, array $defaultIds = []) {
+	public static function GetFolderUris(array $rows, $uriTag, array $defaultIds = []) {
 		$candidates = [];
 		foreach ($rows as $row) {
+			$pinned = isset($row[$uriTag]) && $row[$uriTag] !== '';
 			$candidates[] = [
 				'sourcekey' => $row[PR_SOURCE_KEY],
-				'uri' => (string) ($row[PR_DISPLAY_NAME] ?? ''),
+				'uri' => (string) ($pinned ? $row[$uriTag] : ($row[PR_DISPLAY_NAME] ?? '')),
+				'pinned' => $pinned,
 				'default' => isset($row[PR_ENTRYID]) && in_array($row[PR_ENTRYID], $defaultIds, true),
 			];
 		}
-		usort($candidates, fn ($a, $b) => $b['default'] <=> $a['default'] ?: strcmp($a['sourcekey'], $b['sourcekey']));
+		usort($candidates, fn ($a, $b) => [$b['pinned'], $b['default']] <=> [$a['pinned'], $a['default']] ?: strcmp($a['sourcekey'], $b['sourcekey']));
 
 		$uris = [];
 		$taken = [];
@@ -347,45 +354,128 @@ class GrommunioDavBackend {
 	}
 
 	/**
+	 * Returns the URI of a folder as listed by GetFolders().
+	 *
+	 * @param string $folderId
+	 * @param array  $classes  container classes of the listing
+	 *
+	 * @return null|string
+	 */
+	public function GetFolderUri($folderId, $classes) {
+		$principalUri = explode(':', $folderId, 2)[0];
+		foreach ($this->GetFolders($principalUri, $classes) as $folder) {
+			if ($folder['id'] === $folderId) {
+				return $folder['uri'];
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Resolves MAPI named property tags for the Apple/DAV folder metadata stored in PSETID_GROMOX.
 	 *
 	 * @param mixed $store MAPI store
 	 *
-	 * @return array keys: calendarColor, calendarOrder, calendarTransp
+	 * @return array keys: calendarColor, calendarOrder, calendarTransp, davUri
 	 */
 	public function GetFolderDavProperties($store) {
 		return getPropIdsFromStrings($store, [
 			"calendarColor" => MapiProps::PROP_CALENDAR_COLOR,
 			"calendarOrder" => MapiProps::PROP_CALENDAR_ORDER,
 			"calendarTransp" => MapiProps::PROP_CALENDAR_TRANSP,
+			"davUri" => MapiProps::PROP_DAV_URI,
 		]);
 	}
 
 	/**
 	 * Applies a PROPPATCH-derived set of folder properties to the MAPI folder backing $folderId.
 	 *
-	 * Accepts a map of property tag => value. Values that are null cause the property to be deleted.
+	 * When the folder is renamed, its current URI is kept for it.
 	 *
-	 * @param string $folderId
-	 * @param array  $propsToSet    property tag => value
-	 * @param array  $propsToDelete property tags to delete
+	 * gromox refuses changes of folder properties unless the user owns the
+	 * store or the folder. Clients like Apple Calendar set their color and
+	 * order also on shared calendars and retry endlessly on errors, these
+	 * changes are skipped without an error. Only a refused rename is
+	 * reported, the folder keeps its name then.
 	 *
-	 * @return bool
+	 * @param string      $folderId
+	 * @param array       $propsToSet    property tag => value
+	 * @param array       $propsToDelete property tags to delete
+	 * @param null|string $uri           current URI of the folder, required to rename it unless it was created over DAV
+	 *
+	 * @return array tags of the properties not applied, empty on success
 	 */
-	public function UpdateFolderProperties($folderId, array $propsToSet, array $propsToDelete = []) {
+	public function UpdateFolderProperties($folderId, array $propsToSet, array $propsToDelete = [], $uri = null) {
 		$folder = $this->GetMapiFolder($folderId);
-		if (!$folder) {
-			return false;
+		$failed = [];
+		if (isset($propsToSet[PR_DISPLAY_NAME])) {
+			$uriTag = $this->GetFolderDavProperties($this->GetStoreById($folderId))['davUri'];
+			$props = mapi_getprops($folder, [PR_DISPLAY_NAME, $uriTag]);
+			if ($propsToSet[PR_DISPLAY_NAME] === ($props[PR_DISPLAY_NAME] ?? null)) {
+				unset($propsToSet[PR_DISPLAY_NAME]);
+			}
+			elseif (!isset($props[$uriTag])) {
+				if ($uri === null) {
+					$this->logger->error("Unable to rename folder %s without its URI", $folderId);
+					unset($propsToSet[PR_DISPLAY_NAME]);
+					$failed[] = PR_DISPLAY_NAME;
+				}
+				else {
+					$propsToSet[$uriTag] = $uri;
+				}
+			}
 		}
-		if (!empty($propsToSet)) {
-			mapi_setprops($folder, $propsToSet);
+		if (empty($propsToSet) && empty($propsToDelete)) {
+			return $failed;
 		}
-		if (!empty($propsToDelete)) {
-			mapi_deleteprops($folder, $propsToDelete);
-		}
-		mapi_savechanges($folder);
+		$saved = (empty($propsToSet) || mapi_setprops($folder, $propsToSet)) &&
+			(empty($propsToDelete) || mapi_deleteprops($folder, $propsToDelete)) &&
+			mapi_savechanges($folder);
+		if (!$saved) {
+			$err = mapi_last_hresult();
+			if ($err == MAPI_E_NO_ACCESS) {
+				$this->logger->info("No permission to change the properties of folder %s, skipped", $folderId);
 
-		return true;
+				return isset($propsToSet[PR_DISPLAY_NAME]) ? array_merge($failed, [PR_DISPLAY_NAME]) : $failed;
+			}
+			$this->logger->error("Unable to change the properties of folder %s: %s (0x%x)", $folderId, mapi_strerror($err), $err);
+
+			return array_merge($failed, array_keys($propsToSet), $propsToDelete);
+		}
+		// a name taken by another folder is not set, without an error
+		if (isset($propsToSet[PR_DISPLAY_NAME])) {
+			$props = mapi_getprops($folder, [PR_DISPLAY_NAME]);
+			if (($props[PR_DISPLAY_NAME] ?? null) !== $propsToSet[PR_DISPLAY_NAME]) {
+				$this->logger->info("Unable to rename folder %s to \"%s\"", $folderId, $propsToSet[PR_DISPLAY_NAME]);
+				$failed[] = PR_DISPLAY_NAME;
+			}
+		}
+
+		return $failed;
+	}
+
+	/**
+	 * Returns the result of a PROPPATCH for PropPatch::handle().
+	 *
+	 * @param array $mutations clark-notation property name => value
+	 * @param array $tags      MAPI property tag by clark-notation property name
+	 * @param array $failed    tags of the properties not applied, see UpdateFolderProperties()
+	 *
+	 * @return array clark-notation property name => HTTP status
+	 */
+	public static function GetPropPatchResult(array $mutations, array $tags, array $failed) {
+		$result = [];
+		foreach ($mutations as $name => $value) {
+			if (isset($tags[$name]) && in_array($tags[$name], $failed, true)) {
+				$result[$name] = 403;
+			}
+			else {
+				$result[$name] = $value === null ? 204 : 200;
+			}
+		}
+
+		return $result;
 	}
 
 	/**
