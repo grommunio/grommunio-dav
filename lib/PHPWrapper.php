@@ -95,21 +95,35 @@ class PHPWrapper {
 		if (!$entryid && isset($props[PR_SOURCE_KEY], $props[PR_PARENT_SOURCE_KEY])) {
 			$entryid = mapi_msgstore_entryidfromsourcekey($this->store, $props[PR_PARENT_SOURCE_KEY], $props[PR_SOURCE_KEY]);
 		}
-		$mapimessage = mapi_msgstore_openentry($this->store, $entryid);
-		$messageProps = mapi_getprops($mapimessage, [PR_SOURCE_KEY, $this->props["goid"]]);
+		$mapimessage = $entryid ? mapi_msgstore_openentry($this->store, $entryid) : false;
 
 		$url = null;
-		if (isset($messageProps[$this->props["goid"]])) {
-			// get uid from goid and check if it's a valid one
-			$url = getUidFromGoid($messageProps[$this->props["goid"]]);
-			if ($url != null) {
-				$this->logger->trace("got %s (goid: %s uid: %s), flags: %d", bin2hex($messageProps[PR_SOURCE_KEY]), bin2hex($messageProps[$this->props["goid"]]), $url, $flags);
-				$this->syncstate->rememberAppttsref($this->folderid, bin2hex($messageProps[PR_SOURCE_KEY]), $url);
+		if ($mapimessage) {
+			$messageProps = mapi_getprops($mapimessage, [PR_SOURCE_KEY, $this->props["goid"]]);
+			$sourcekey = $messageProps[PR_SOURCE_KEY];
+			if (isset($messageProps[$this->props["goid"]])) {
+				// get uid from goid and check if it's a valid one
+				$url = getUidFromGoid($messageProps[$this->props["goid"]]);
+				if ($url != null) {
+					$this->logger->trace("got %s (goid: %s uid: %s), flags: %d", bin2hex($sourcekey), bin2hex($messageProps[$this->props["goid"]]), $url, $flags);
+					$this->syncstate->rememberAppttsref($this->folderid, bin2hex($sourcekey), $url);
+				}
 			}
 		}
+		elseif (isset($props[PR_SOURCE_KEY])) {
+			// e.g. deleted meanwhile, report it under the name known
+			$sourcekey = $props[PR_SOURCE_KEY];
+			$this->logger->debug("Unable to open message %s: 0x%x", bin2hex($sourcekey), mapi_last_hresult());
+			$url = $this->syncstate->getAppttsref($this->folderid, bin2hex($sourcekey));
+		}
+		else {
+			$this->logger->warn("Unable to open message without source key: 0x%x", mapi_last_hresult());
+
+			return SYNC_E_IGNORE;
+		}
 		if (!$url) {
-			$this->logger->trace("got %s (PR_SOURCE_KEY), flags: %d", bin2hex($messageProps[PR_SOURCE_KEY]), $flags);
-			$url = bin2hex($messageProps[PR_SOURCE_KEY]);
+			$this->logger->trace("got %s (PR_SOURCE_KEY), flags: %d", bin2hex($sourcekey), $flags);
+			$url = bin2hex($sourcekey);
 		}
 		$url = rawurlencode($url);
 

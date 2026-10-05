@@ -14,6 +14,7 @@ use Sabre\CalDAV\Xml\Property\ScheduleCalendarTransp;
 use Sabre\CalDAV\Xml\Property\SupportedCalendarComponentSet;
 use Sabre\DAV\Exception as DAVException;
 use Sabre\DAV\Exception\Forbidden;
+use Sabre\DAV\Exception\NotFound;
 
 class GrommunioDavBackend {
 	public const IMPERSONATE_DELIM = '!';
@@ -112,9 +113,19 @@ class GrommunioDavBackend {
 	 * @return string
 	 */
 	public function CreateFolder($principalUri, $url, $class, $displayname) {
-		$props = mapi_getprops($this->GetStore($principalUri), [PR_IPM_SUBTREE_ENTRYID]);
-		$folder = mapi_msgstore_openentry($this->GetStore($principalUri), $props[PR_IPM_SUBTREE_ENTRYID]);
+		$store = $this->GetStore($principalUri);
+		if (!$store) {
+			$this->throwOpenError(sprintf('Unable to open the store of %s', $principalUri));
+		}
+		$props = mapi_getprops($store, [PR_IPM_SUBTREE_ENTRYID]);
+		$folder = mapi_msgstore_openentry($store, $props[PR_IPM_SUBTREE_ENTRYID]);
+		if (!$folder) {
+			$this->throwOpenError('Unable to open the IPM subtree');
+		}
 		$newfolder = mapi_folder_createfolder($folder, $url, $displayname);
+		if (!$newfolder) {
+			$this->ThrowMapiError('Unable to create folder');
+		}
 		mapi_setprops($newfolder, [PR_CONTAINER_CLASS => $class]);
 		// Return the composite folder id (principal:sourcekey) so callers that need to address the
 		// freshly created folder via GetMapiFolder()/UpdateFolderProperties() can do so without
@@ -162,6 +173,9 @@ class GrommunioDavBackend {
 		// TODO limit the output to subfolders of the principalUri?
 
 		$store = $this->GetStore($principalUri);
+		if (!$store) {
+			$this->throwOpenError(sprintf('Unable to open the store of %s', $principalUri));
+		}
 		$storeprops = mapi_getprops($store, [PR_IPM_WASTEBASKET_ENTRYID]);
 		$rootfolder = mapi_msgstore_openentry($store);
 		$hierarchy = mapi_folder_gethierarchytable($rootfolder, CONVENIENT_DEPTH | MAPI_DEFERRED_ERRORS);
@@ -505,18 +519,44 @@ class GrommunioDavBackend {
 	}
 
 	/**
-	 * Returns a mapi folder resource for a folderid (PR_SOURCE_KEY).
+	 * Throws the DAV exception for an object that cannot be opened.
+	 *
+	 * @param string $message
+	 *
+	 * @throws DAVException
+	 */
+	private function throwOpenError($message) {
+		$err = mapi_last_hresult();
+		$this->logger->info("%s: %s (0x%x)", $message, mapi_strerror($err), $err);
+		if ($err == MAPI_E_NO_ACCESS) {
+			throw new Forbidden($message);
+		}
+
+		throw new NotFound($message);
+	}
+
+	/**
+	 * Returns a mapi folder resource for a folderid (principal:PR_SOURCE_KEY).
 	 *
 	 * @param string $folderid
 	 *
 	 * @return mixed
+	 *
+	 * @throws DAVException if the folder cannot be opened
 	 */
 	public function GetMapiFolder($folderid) {
 		$this->logger->trace('Id: %s', $folderid);
-		$arr = explode(':', $folderid);
-		$entryid = mapi_msgstore_entryidfromsourcekey($this->GetStore($arr[0]), hex2bin($arr[1]));
+		$arr = explode(':', $folderid, 2);
+		$store = $this->GetStore($arr[0]);
+		$sourcekey = isset($arr[1]) && ctype_xdigit($arr[1]) && strlen($arr[1]) % 2 == 0 ? hex2bin($arr[1]) : false;
+		// an empty entry id would open the root folder
+		$entryid = $store && $sourcekey ? mapi_msgstore_entryidfromsourcekey($store, $sourcekey) : false;
+		$folder = $entryid ? mapi_msgstore_openentry($store, $entryid) : false;
+		if (!$folder) {
+			$this->throwOpenError(sprintf('Unable to open folder %s', $folderid));
+		}
 
-		return mapi_msgstore_openentry($this->GetStore($arr[0]), $entryid);
+		return $folder;
 	}
 
 	/**
@@ -600,9 +640,8 @@ class GrommunioDavBackend {
 
 		// g-dav#61: always use SMTP address (issue with altnames)
 		$storeProps = mapi_getprops($store, [PR_MAILBOX_OWNER_ENTRYID]);
-		$addressbook = $this->getAddressbook();
-		$mailuser = mapi_ab_openentry($addressbook, $storeProps[PR_MAILBOX_OWNER_ENTRYID]);
-		$smtpProps = mapi_getprops($mailuser, [PR_SMTP_ADDRESS]);
+		$mailuser = isset($storeProps[PR_MAILBOX_OWNER_ENTRYID]) ? mapi_ab_openentry($this->GetAddressBook(), $storeProps[PR_MAILBOX_OWNER_ENTRYID]) : false;
+		$smtpProps = $mailuser ? mapi_getprops($mailuser, [PR_SMTP_ADDRESS]) : [];
 		if (isset($smtpProps[PR_SMTP_ADDRESS])) {
 			$storename = $this->user = $smtpProps[PR_SMTP_ADDRESS];
 		}
@@ -1096,7 +1135,11 @@ class GrommunioDavBackend {
 	 * @return bool
 	 */
 	private function isGdavEnabled() {
-		$storeProps = mapi_getprops($this->GetStore($this->GetUser()), [PR_EC_ENABLED_FEATURES_L]);
+		$store = $this->GetStore($this->GetUser());
+		if (!$store) {
+			return false;
+		}
+		$storeProps = mapi_getprops($store, [PR_EC_ENABLED_FEATURES_L]);
 		if (($storeProps[PR_EC_ENABLED_FEATURES_L] ?? 0) & UP_DAV) {
 			$this->logger->debug("user %s is enabled for grommunio-dav", $this->user);
 
