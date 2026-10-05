@@ -625,9 +625,10 @@ class GrommunioDavBackend {
 		}
 		$this->logger->trace("storename %s", $storename);
 
-		/* We already got the store */
-		if (isset($this->stores[$storename]) && $this->stores[$storename] != null) {
-			return $this->stores[$storename];
+		/* We already got the store, under this or its SMTP name */
+		$key = strtolower($storename);
+		if (isset($this->stores[$key])) {
+			return $this->stores[$key];
 		}
 
 		$store = $this->OpenMapiStore($storename);
@@ -643,11 +644,15 @@ class GrommunioDavBackend {
 		$mailuser = isset($storeProps[PR_MAILBOX_OWNER_ENTRYID]) ? mapi_ab_openentry($this->GetAddressBook(), $storeProps[PR_MAILBOX_OWNER_ENTRYID]) : false;
 		$smtpProps = $mailuser ? mapi_getprops($mailuser, [PR_SMTP_ADDRESS]) : [];
 		if (isset($smtpProps[PR_SMTP_ADDRESS])) {
-			$storename = $this->user = $smtpProps[PR_SMTP_ADDRESS];
+			// only the logged on user, not the owners of other stores
+			if (strcasecmp($storename, $this->user) == 0) {
+				$this->user = $smtpProps[PR_SMTP_ADDRESS];
+			}
+			$this->stores[strtolower($smtpProps[PR_SMTP_ADDRESS])] = $store;
 		}
-		$this->stores[$storename] = $store;
+		$this->stores[$key] = $store;
 
-		return $this->stores[$storename];
+		return $store;
 	}
 
 	/**
