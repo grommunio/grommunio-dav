@@ -170,7 +170,9 @@ class GrommunioDavBackend {
 		foreach ($classes as $class) {
 			$restrictions[] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => PR_CONTAINER_CLASS, VALUE => $class]];
 		}
-		mapi_table_restrict($hierarchy, [RES_OR, $restrictions]);
+		if (!mapi_table_restrict($hierarchy, [RES_OR, $restrictions])) {
+			$this->ThrowMapiError('Unable to restrict the folder list');
+		}
 
 		$davProps = $this->GetFolderDavProperties($store);
 
@@ -407,8 +409,8 @@ class GrommunioDavBackend {
 		$properties = $this->GetCustomProperties($id);
 		$table = mapi_folder_getcontentstable($folder, MAPI_DEFERRED_ERRORS);
 		$restriction = $this->getRestrictionForFilters($filters, $this->GetStoreById($id));
-		if ($restriction) {
-			mapi_table_restrict($table, $restriction);
+		if ($restriction && !mapi_table_restrict($table, $restriction)) {
+			$this->ThrowMapiError('Unable to restrict the object list');
 		}
 
 		$rows = mapi_table_queryallrows($table, [PR_SOURCE_KEY, PR_LAST_MODIFICATION_TIME, PR_MESSAGE_SIZE, $properties['goid'], PR_SENSITIVITY, $properties['private']]);
@@ -739,10 +741,16 @@ class GrommunioDavBackend {
 		// find the message if we have a restriction
 		if ($restriction) {
 			$table = mapi_folder_getcontentstable($mapifolder, MAPI_DEFERRED_ERRORS);
-			mapi_table_restrict($table, [RES_OR, $restriction]);
-			// Get requested properties, plus whatever we need
-			$proplist = [PR_ENTRYID];
-			$rows = mapi_table_queryallrows($table, $proplist);
+			// an unrestricted table would hand out some other message
+			if (mapi_table_restrict($table, [RES_OR, $restriction])) {
+				// Get requested properties, plus whatever we need
+				$proplist = [PR_ENTRYID];
+				$rows = mapi_table_queryallrows($table, $proplist);
+			}
+			else {
+				$this->logger->error("Unable to restrict the table searching for '%s': 0x%08X", $id, mapi_last_hresult());
+				$rows = [];
+			}
 			if (count($rows) > 1) {
 				$this->logger->warn("Found %d entries for id '%s' searching for message, returnin first in the list", count($rows), $id);
 			}
