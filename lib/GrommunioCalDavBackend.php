@@ -91,6 +91,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 *
 	 * @param string $principalUri
 	 * @param string $calendarUri
+	 * @param array  $properties   clark-notation property name => value
 	 *
 	 * @return string
 	 */
@@ -344,6 +345,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 * to think of.
 	 *
 	 * @param mixed $calendarId
+	 * @param array $filters    see \Sabre\CalDAV\CalendarQueryParser
 	 *
 	 * @return array
 	 */

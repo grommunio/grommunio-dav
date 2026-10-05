@@ -1154,13 +1154,13 @@ class GrommunioDavBackend {
 	 * Performs ICS based sync used from getChangesForAddressBook
 	 * / getChangesForCalendar.
 	 *
-	 * @param string $folderId
-	 * @param string $syncToken
-	 * @param string $fileExtension
-	 * @param int    $limit
-	 * @param array  $filters
+	 * @param string      $folderId
+	 * @param null|string $syncToken
+	 * @param string      $fileExtension
+	 * @param null|int    $limit
+	 * @param array       $filters
 	 *
-	 * @return null|array
+	 * @return null|array null if the sync token is unknown or the changes cannot be exported
 	 */
 	public function Sync($folderId, $syncToken, $fileExtension, $limit = null, $filters = []) {
 		$arr = explode(':', $folderId);

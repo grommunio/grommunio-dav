@@ -151,6 +151,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 *
 	 * @param string $principalUri
 	 * @param string $url          just the 'basename' of the url
+	 * @param array  $properties   clark-notation property name => value
 	 *
 	 * @return mixed
 	 */
