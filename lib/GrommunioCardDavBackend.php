@@ -175,8 +175,7 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 */
 	public function deleteAddressBook($addressBookId) {
 		$this->logger->trace("addressBookId: %s", $addressBookId);
-		$success = $this->gDavBackend->DeleteFolder($addressBookId);
-		// TODO evaluate $success
+		$this->gDavBackend->DeleteFolder($addressBookId);
 	}
 
 	/**

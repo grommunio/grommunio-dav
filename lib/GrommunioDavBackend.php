@@ -141,23 +141,92 @@ class GrommunioDavBackend {
 	}
 
 	/**
-	 * Delete a folder with MAPI class.
+	 * Deletes a folder with its contents. Like grommunio-web, the folder is
+	 * moved to Deleted Items, if the store has that and it is not in there.
 	 *
-	 * @param mixed $id
+	 * @param string $id
 	 *
-	 * @return bool
+	 * @throws DAVException if the folder cannot be deleted
 	 */
 	public function DeleteFolder($id) {
 		$folder = $this->GetMapiFolder($id);
-		if (!$folder) {
-			return false;
+		$store = $this->GetStoreById($id);
+		$props = mapi_getprops($folder, [PR_ENTRYID, PR_PARENT_ENTRYID, PR_DISPLAY_NAME]);
+		$parentfolder = isset($props[PR_PARENT_ENTRYID]) ? mapi_msgstore_openentry($store, $props[PR_PARENT_ENTRYID]) : false;
+		if (!$parentfolder) {
+			$this->throwOpenError(sprintf('Unable to open the parent folder of %s', $id));
+		}
+		$storeprops = mapi_getprops($store, [PR_IPM_WASTEBASKET_ENTRYID]);
+		if (isset($storeprops[PR_IPM_WASTEBASKET_ENTRYID]) && $storeprops[PR_IPM_WASTEBASKET_ENTRYID] !== $props[PR_PARENT_ENTRYID]) {
+			$this->moveFolderToWastebasket($store, $parentfolder, $props, $storeprops[PR_IPM_WASTEBASKET_ENTRYID], $id);
+
+			return;
+		}
+		// without DEL_MESSAGES gromox keeps folders with contents, without an error
+		if (!mapi_folder_deletefolder($parentfolder, $props[PR_ENTRYID], DEL_FOLDERS | DEL_MESSAGES)) {
+			if (mapi_last_hresult() == MAPI_E_NOT_FOUND) {
+				throw new NotFound(sprintf('Folder %s not found', $id));
+			}
+			$this->ThrowMapiError(sprintf('Unable to delete folder %s', $id));
+		}
+		// nor is an error reported when contents cannot be deleted
+		$hierarchy = mapi_folder_gethierarchytable($parentfolder, MAPI_DEFERRED_ERRORS);
+		foreach ($hierarchy ? mapi_table_queryallrows($hierarchy, [PR_ENTRYID]) : [] as $row) {
+			if (($row[PR_ENTRYID] ?? null) === $props[PR_ENTRYID]) {
+				$this->logger->info("Folder %s was not deleted completely", $id);
+
+				throw new Forbidden('Unable to delete all contents of the folder');
+			}
+		}
+	}
+
+	/**
+	 * Moves a folder with its subfolders to Deleted Items, with a new name if
+	 * the name is taken there.
+	 *
+	 * @param mixed  $store
+	 * @param mixed  $parentfolder
+	 * @param array  $props        PR_ENTRYID and PR_DISPLAY_NAME of the folder
+	 * @param string $wastebasketEntryid
+	 * @param string $id
+	 *
+	 * @throws DAVException if the folder cannot be moved
+	 */
+	private function moveFolderToWastebasket($store, $parentfolder, $props, $wastebasketEntryid, $id) {
+		$wastebasket = mapi_msgstore_openentry($store, $wastebasketEntryid);
+		if (!$wastebasket) {
+			$this->ThrowMapiError(sprintf('Unable to open Deleted Items to delete folder %s', $id));
+		}
+		$name = (string) ($props[PR_DISPLAY_NAME] ?? $id);
+		for ($i = 0; $i < 100; ++$i) {
+			$newName = $i === 0 ? $name : sprintf('%s (%d)', $name, $i);
+
+			try {
+				$moved = mapi_folder_copyfolder($parentfolder, $props[PR_ENTRYID], $wastebasket, $newName, FOLDER_MOVE);
+				$err = mapi_last_hresult();
+			}
+			catch (\MAPIException $e) {
+				$e->setHandled();
+				$moved = false;
+				$err = $e->getCode();
+			}
+			if ($moved) {
+				return;
+			}
+			if ($err != MAPI_E_COLLISION) {
+				if ($err == MAPI_E_NOT_FOUND) {
+					throw new NotFound(sprintf('Folder %s not found', $id));
+				}
+				$this->logger->error("Unable to move folder %s to Deleted Items: %s (0x%x)", $id, mapi_strerror($err), $err);
+				if ($err == MAPI_E_NO_ACCESS) {
+					throw new Forbidden(sprintf('Unable to delete folder %s', $id));
+				}
+
+				throw new DAVException(sprintf('Unable to delete folder %s', $id));
+			}
 		}
 
-		$props = mapi_getprops($folder, [PR_ENTRYID, PR_PARENT_ENTRYID]);
-		$parentfolder = mapi_msgstore_openentry($this->GetStoreById($id), $props[PR_PARENT_ENTRYID]);
-		mapi_folder_deletefolder($parentfolder, $props[PR_ENTRYID]);
-
-		return true;
+		throw new Forbidden(sprintf('Unable to find a free name in Deleted Items for folder %s', $id));
 	}
 
 	/**

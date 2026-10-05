@@ -256,8 +256,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 */
 	public function deleteCalendar($calendarId) {
 		$this->logger->trace("calendarId: %s", $calendarId);
-		$success = $this->gDavBackend->DeleteFolder($calendarId);
-		// TODO evaluate $success
+		$this->gDavBackend->DeleteFolder($calendarId);
 	}
 
 	/**
