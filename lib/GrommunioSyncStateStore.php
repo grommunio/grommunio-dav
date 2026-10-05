@@ -68,9 +68,10 @@ class GrommunioSyncStateStore {
 	 * @param string $folderid
 	 * @param string $id
 	 * @param string $value
+	 * @param string $mark     the state of the folder this state is complete for, see getCurrentTokens()
 	 */
-	public function setState($folderid, $id, $value) {
-		$this->write(self::STATE_CLASS, ['folder' => $folderid, 'token' => $id], [PR_BODY => $value]);
+	public function setState($folderid, $id, $value, $mark = '') {
+		$this->write(self::STATE_CLASS, ['folder' => $folderid, 'token' => $id], [PR_BODY => $value, 'mark' => (string) $mark]);
 		$this->prune($folderid);
 	}
 
@@ -120,14 +121,42 @@ class GrommunioSyncStateStore {
 	}
 
 	/**
-	 * The token only changes when a client syncs, not when the folder does,
-	 * so it is not offered as the current one of a collection: clients
-	 * comparing it would miss changes.
+	 * Returns the current tokens of folders.
 	 *
-	 * @param string $folderId
+	 * A token is only issued when a client syncs, not when the folder
+	 * changes. It is the current one only while the folder is unchanged
+	 * since: a state is marked with the state of the folder it includes
+	 * all changes of, and the token of the latest state with the mark of
+	 * the current state of the folder is the current one.
+	 *
+	 * @param array $marks the current state of each folder, by folder id
+	 *
+	 * @return array token by folder id, folders without current token are left out
 	 */
-	public function getCurrentToken($folderId) {
-		return null;
+	public function getCurrentTokens(array $marks) {
+		$marks = array_filter($marks, fn ($mark) => $mark !== '');
+		// the properties are named in the store of the state folder
+		if (empty($marks) || $this->getFolder() === null) {
+			return [];
+		}
+		$properties = $this->getProperties();
+		$restrictions = [];
+		foreach ($marks as $folderid => $mark) {
+			$restrictions[] = [RES_AND, [
+				[RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties['folder'], VALUE => (string) $folderid]],
+				[RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties['mark'], VALUE => $mark]],
+			]];
+		}
+		$rows = $this->findRows(self::STATE_CLASS, [], ['folder', 'token'], true, [[RES_OR, $restrictions]]);
+		usort($rows, fn ($a, $b) => $a[PR_LAST_MODIFICATION_TIME] <=> $b[PR_LAST_MODIFICATION_TIME]);
+		$tokens = [];
+		foreach ($rows as $row) {
+			if (isset($row['folder'], $row['token'])) {
+				$tokens[$row['folder']] = $row['token'];
+			}
+		}
+
+		return $tokens;
 	}
 
 	/**
@@ -227,10 +256,11 @@ class GrommunioSyncStateStore {
 	 * @param string $class
 	 * @param array  $columns property names
 	 * @param bool   $entryid also return PR_ENTRYID and PR_LAST_MODIFICATION_TIME
+	 * @param array  $extra   further restrictions
 	 *
 	 * @return array
 	 */
-	private function findRows($class, array $keys, array $columns, $entryid = false) {
+	private function findRows($class, array $keys, array $columns, $entryid = false, array $extra = []) {
 		$folder = $this->getFolder();
 		if ($folder === null) {
 			return [];
@@ -239,6 +269,9 @@ class GrommunioSyncStateStore {
 		$restriction = [[RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => PR_MESSAGE_CLASS, VALUE => $class]]];
 		foreach ($keys as $name => $value) {
 			$restriction[] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties[$name], VALUE => $value]];
+		}
+		foreach ($extra as $r) {
+			$restriction[] = $r;
 		}
 		$table = mapi_folder_getcontentstable($folder, MAPI_ASSOCIATED | MAPI_DEFERRED_ERRORS);
 		if (!$table || !mapi_table_restrict($table, [RES_AND, $restriction])) {
@@ -337,6 +370,7 @@ class GrommunioSyncStateStore {
 				'token' => 'PT_STRING8:PSETID_GROMOX:dav-sync-token',
 				'sourcekey' => 'PT_STRING8:PSETID_GROMOX:dav-sync-sourcekey',
 				'url' => 'PT_STRING8:PSETID_GROMOX:dav-sync-url',
+				'mark' => 'PT_STRING8:PSETID_GROMOX:dav-sync-mark',
 			]);
 		}
 

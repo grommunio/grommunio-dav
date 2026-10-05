@@ -18,6 +18,10 @@ use Sabre\DAV\Exception\NotFound;
 
 class GrommunioDavBackend {
 	public const IMPERSONATE_DELIM = '!';
+
+	// seconds a folder must be unchanged before its sync state is taken as current,
+	// covers the second granularity of the change time and clock differences of servers
+	public const SYNC_MARK_MARGIN = 60;
 	private $logger;
 	protected $session;
 	protected $stores;
@@ -308,10 +312,18 @@ class GrommunioDavBackend {
 			return !isset($row[PR_PARENT_ENTRYID], $storeprops[PR_IPM_WASTEBASKET_ENTRYID]) || $row[PR_PARENT_ENTRYID] != $storeprops[PR_IPM_WASTEBASKET_ENTRYID];
 		});
 		$uris = static::GetFolderUris($rows, $davProps['davUri'], array_values($rootprops));
+		$marks = [];
+		foreach ($rows as $row) {
+			if (isset($row[PR_LOCAL_COMMIT_TIME_MAX])) {
+				$marks[bin2hex($row[PR_SOURCE_KEY])] = (string) $row[PR_LOCAL_COMMIT_TIME_MAX];
+			}
+		}
+		$syncTokens = $this->syncstate->getCurrentTokens($marks);
 
 		foreach ($rows as $row) {
 			$folderId = $principalUri . ":" . bin2hex($row[PR_SOURCE_KEY]);
-			$syncToken = $this->GetCurrentSyncToken($folderId);
+			// clients compare it to theirs to find out whether to sync
+			$syncToken = $syncTokens[bin2hex($row[PR_SOURCE_KEY])] ?? '0000000000';
 
 			$folder = [
 				'id' => $folderId,
@@ -1257,6 +1269,9 @@ class GrommunioDavBackend {
 		$mapiimporter = mapi_wrap_importcontentschanges($phpwrapper);
 
 		$mapifolder = $this->GetMapiFolder($folderId);
+		// before the export, changes during it make the state outdated
+		$folderProps = mapi_getprops($mapifolder, [PR_LOCAL_COMMIT_TIME_MAX]);
+		$mark = static::GetSyncMark($folderProps[PR_LOCAL_COMMIT_TIME_MAX] ?? null, time());
 		$exporter = mapi_openproperty($mapifolder, PR_CONTENTS_SYNCHRONIZER, IID_IExchangeExportChanges, 0, 0);
 		if (!$exporter) {
 			$this->logger->error("Unable to get exporter");
@@ -1318,8 +1333,15 @@ class GrommunioDavBackend {
 		// an initial sync gets a token of its own, also without any objects
 		$initial = $syncToken == null || $syncToken == '0000000000';
 		$newtoken = ($phpwrapper->Total() > 0 || $initial) ? uniqid() : $syncToken;
-
-		$this->syncstate->setState($arr[1], $newtoken, bin2hex($state));
+		// a client in sync gets the current token of the collection, so it
+		// does not sync again because of a token issued to another client
+		$current = $newtoken === $syncToken && !$truncated ? ($this->syncstate->getCurrentTokens([$arr[1] => $mark])[$arr[1]] ?? null) : null;
+		if ($current !== null) {
+			$newtoken = $current;
+		}
+		else {
+			$this->syncstate->setState($arr[1], $newtoken, bin2hex($state), $truncated ? '' : $mark);
+		}
 
 		$result = [
 			"syncToken" => $newtoken,
@@ -1362,21 +1384,20 @@ class GrommunioDavBackend {
 	}
 
 	/**
-	 * Returns the current sync-token for the folder if one was issued.
+	 * Returns the mark of the sync state of a folder, see
+	 * GrommunioSyncStateStore::getCurrentTokens().
 	 *
-	 * @param string $folderId composite id in form principal:sourcekey
+	 * The state of the folder is its last change, in seconds. A state is
+	 * only marked when no other change can happen within the same second,
+	 * with a margin for the clocks of the servers.
 	 *
-	 * @return string
+	 * @param null|int $commitTime PR_LOCAL_COMMIT_TIME_MAX of the folder before the export
+	 * @param int      $now
+	 *
+	 * @return string empty if the state cannot be marked
 	 */
-	public function GetCurrentSyncToken($folderId) {
-		$arr = explode(':', $folderId, 2);
-		if (count($arr) < 2 || $arr[1] === '') {
-			return '0000000000';
-		}
-
-		$token = $this->syncstate->getCurrentToken($arr[1]);
-
-		return (!is_string($token) || $token === '') ? '0000000000' : $token;
+	public static function GetSyncMark($commitTime, $now) {
+		return ($commitTime !== null && $now - $commitTime >= self::SYNC_MARK_MARGIN) ? (string) $commitTime : '';
 	}
 
 	/**
