@@ -12,6 +12,9 @@ namespace grommunio\DAV;
 
 use Sabre\CardDAV\Backend\AbstractBackend;
 use Sabre\CardDAV\Backend\SyncSupport;
+use Sabre\DAV\Exception\Forbidden;
+use Sabre\DAV\Exception\NotFound;
+use Sabre\DAV\Exception\UnsupportedMediaType;
 use Sabre\DAV\PropPatch;
 
 class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
@@ -303,6 +306,9 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);
 
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($addressBookId, $cardUri, null, static::FILE_EXTENSION);
+		if (!$mapimessage) {
+			throw new NotFound('Card not found');
+		}
 
 		return $this->setData($addressBookId, $mapimessage, $cardData);
 	}
@@ -314,7 +320,9 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	 * @param mixed  $mapimessage
 	 * @param string $vcf
 	 *
-	 * @return null|string
+	 * @return string the ETag
+	 *
+	 * @throws UnsupportedMediaType if the data cannot be converted
 	 */
 	private function setData($addressBookId, $mapimessage, $vcf) {
 		$store = $this->gDavBackend->GetStoreById($addressBookId);
@@ -322,23 +330,31 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 
 		$group = DistList::ParseGroupVCard($vcf);
 		if ($group !== null) {
-			$ok = $this->distList->FromVCard($addressBookId, $mapimessage, $group);
+			if (!$this->distList->FromVCard($addressBookId, $mapimessage, $group)) {
+				$this->gDavBackend->ThrowMapiError('Error updating mapi object');
+			}
 		}
 		else {
 			$props = mapi_getprops($mapimessage, [PR_MESSAGE_CLASS]);
 			if (DistList::IsDistListClass($props[PR_MESSAGE_CLASS] ?? '')) {
 				$this->distList->DeleteMembers($addressBookId, $mapimessage);
 			}
-			$ok = mapi_vcftomapi($session, $store, $mapimessage, $vcf);
-		}
-		if ($ok) {
-			mapi_savechanges($mapimessage);
-			$props = mapi_getprops($mapimessage);
+			if (!mapi_vcftomapi($session, $store, $mapimessage, $vcf)) {
+				// gromox fails with MAPI_E_CALL_FAILED on data it cannot convert
+				if (mapi_last_hresult() == MAPI_E_CALL_FAILED) {
+					$this->logger->error("Unable to convert the vCard data");
 
-			return '"' . $props[PR_LAST_MODIFICATION_TIME] . '"';
+					throw new UnsupportedMediaType('Unable to convert the vCard data');
+				}
+				$this->gDavBackend->ThrowMapiError('Error updating mapi object');
+			}
 		}
+		if (!mapi_savechanges($mapimessage)) {
+			$this->gDavBackend->ThrowMapiError('Error saving mapi object');
+		}
+		$props = mapi_getprops($mapimessage, [PR_LAST_MODIFICATION_TIME]);
 
-		return null;
+		return '"' . $props[PR_LAST_MODIFICATION_TIME] . '"';
 	}
 
 	/**
@@ -371,13 +387,20 @@ class GrommunioCardDavBackend extends AbstractBackend implements SyncSupport {
 	public function deleteCard($addressBookId, $cardUri) {
 		$this->logger->trace("addressBookId: %s - cardUri: %s", $addressBookId, $cardUri);
 		$mapifolder = $this->gDavBackend->GetMapiFolder($addressBookId);
-		$objectId = $this->gDavBackend->GetObjectIdFromObjectUri($cardUri, static::FILE_EXTENSION);
 
 		// to delete we need the PR_ENTRYID of the message
 		// TODO move this part to GrommunioDavBackend
 		$mapimessage = $this->gDavBackend->GetMapiMessageForId($addressBookId, $cardUri, $mapifolder, static::FILE_EXTENSION);
-		$props = mapi_getprops($mapimessage, [PR_ENTRYID]);
-		mapi_folder_deletemessages($mapifolder, [$props[PR_ENTRYID]]);
+		if (!$mapimessage) {
+			throw new NotFound('Card not found');
+		}
+		$props = mapi_getprops($mapimessage, [PR_ENTRYID, PR_ACCESS]);
+		if (isset($props[PR_ACCESS]) && !($props[PR_ACCESS] & MAPI_ACCESS_DELETE)) {
+			throw new Forbidden('Permission denied to delete the object');
+		}
+		if (!mapi_folder_deletemessages($mapifolder, [$props[PR_ENTRYID]])) {
+			$this->gDavBackend->ThrowMapiError('Error deleting mapi object');
+		}
 
 		return true;
 	}
