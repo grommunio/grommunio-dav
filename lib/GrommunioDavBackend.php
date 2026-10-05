@@ -554,9 +554,12 @@ class GrommunioDavBackend {
 	/**
 	 * Returns a list of objects for a folder given by the id.
 	 *
+	 * Besides the keys of Sabre, each object has the key "entryid" with
+	 * the hex entry id of its message.
+	 *
 	 * @param string $id
 	 * @param string $fileExtension
-	 * @param array  $filters
+	 * @param array  $filters       see getRestrictionForFilters(), "uid" restricts to calendar objects with this UID
 	 *
 	 * @return array
 	 */
@@ -565,11 +568,18 @@ class GrommunioDavBackend {
 		$properties = $this->GetCustomProperties($id);
 		$table = mapi_folder_getcontentstable($folder, MAPI_DEFERRED_ERRORS);
 		$restriction = $this->getRestrictionForFilters($filters, $this->GetStoreById($id));
+		if (isset($filters['uid'])) {
+			$goidRestriction = $this->getGoidRestriction($id, $filters['uid']);
+			if ($goidRestriction === null) {
+				return [];
+			}
+			$restriction = $restriction ? [RES_AND, [$restriction, $goidRestriction]] : $goidRestriction;
+		}
 		if ($restriction && !mapi_table_restrict($table, $restriction)) {
 			$this->ThrowMapiError('Unable to restrict the object list');
 		}
 
-		$rows = mapi_table_queryallrows($table, [PR_SOURCE_KEY, PR_LAST_MODIFICATION_TIME, PR_MESSAGE_SIZE, $properties['goid'], PR_SENSITIVITY, $properties['private']]);
+		$rows = mapi_table_queryallrows($table, [PR_ENTRYID, PR_SOURCE_KEY, PR_LAST_MODIFICATION_TIME, PR_MESSAGE_SIZE, $properties['goid'], PR_SENSITIVITY, $properties['private']]);
 
 		$results = [];
 		foreach ($rows as $row) {
@@ -590,6 +600,7 @@ class GrommunioDavBackend {
 				'etag' => '"' . $row[PR_LAST_MODIFICATION_TIME] . ($hidden ? '-p' : '') . '"',
 				'lastmodified' => $row[PR_LAST_MODIFICATION_TIME],
 				'size' => $row[PR_MESSAGE_SIZE], // only approximation
+				'entryid' => bin2hex($row[PR_ENTRYID]),
 			];
 
 			if ($fileExtension == GrommunioCalDavBackend::FILE_EXTENSION) {
@@ -891,32 +902,22 @@ class GrommunioDavBackend {
 			if ($extension) {
 				if ($extension == GrommunioCalDavBackend::FILE_EXTENSION) {
 					$this->logger->trace("Try goid %s", $id);
-					$goids = [];
-					$goids[] = getGoidFromUid($id);
-					$goids[] = getGoidFromUidZero($id);
+					$uids = [$id];
 					// Sometimes Thunderbird urlencodes the URI part
 					if (urldecode($id) !== $id) {
-						$goids[] = getGoidFromUid(urldecode($id));
-						$goids[] = getGoidFromUidZero(urldecode($id));
+						$uids[] = urldecode($id);
 					}
 					// In some cases Thunderbird replaces "@"-sign in UID with an underscore "_" in the URI part, e.g.:
 					// PUT 12345678-ABCD_bahn.de.ics
 					// UID:12345678-ABCD@bahn.de
 					$underscoreCnt = substr_count($id, '_');
 					if ($underscoreCnt === 1) {
-						$goids[] = getGoidFromUid(str_replace('_', '@', $id));
-						$goids[] = getGoidFromUidZero(str_replace('_', '@', $id));
+						$uids[] = str_replace('_', '@', $id);
 					}
-					$goidRestrictions = [];
-					foreach ($goids as $goid) {
-						// an empty value would match unrelated messages carrying an empty goid property
-						if (!is_string($goid) || $goid === '') {
-							continue;
-						}
-						$this->logger->trace("Try goid 0x%08X => %s", $properties["goid"], bin2hex($goid));
-						$goidRestrictions[] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid]];
+					$goidRestriction = $this->getGoidRestriction($folderId, $uids);
+					if ($goidRestriction !== null) {
+						$restriction[] = $goidRestriction;
 					}
-					$restriction[] = [RES_OR, $goidRestrictions];
 				}
 				elseif ($extension == GrommunioCardDavBackend::FILE_EXTENSION) {
 					$this->logger->trace("Try vcarduid %s", $id);
@@ -985,6 +986,31 @@ class GrommunioDavBackend {
 		$this->logger->debug("Nothing found for %s", $id);
 
 		return null;
+	}
+
+	/**
+	 * Returns a restriction for messages with a goid of one of the UIDs.
+	 *
+	 * @param string       $folderId
+	 * @param array|string $uids
+	 *
+	 * @return null|array null if no goid can be derived
+	 */
+	private function getGoidRestriction($folderId, $uids) {
+		$properties = $this->GetCustomProperties($folderId);
+		$restrictions = [];
+		foreach ((array) $uids as $uid) {
+			foreach ([getGoidFromUid($uid), getGoidFromUidZero($uid)] as $goid) {
+				// an empty value would match unrelated messages carrying an empty goid property
+				if (!is_string($goid) || $goid === '') {
+					continue;
+				}
+				$this->logger->trace("Try goid 0x%08X => %s", $properties["goid"], bin2hex($goid));
+				$restrictions[] = [RES_PROPERTY, [RELOP => RELOP_EQ, ULPROPTAG => $properties["goid"], VALUE => $goid]];
+			}
+		}
+
+		return empty($restrictions) ? null : [RES_OR, $restrictions];
 	}
 
 	/**
