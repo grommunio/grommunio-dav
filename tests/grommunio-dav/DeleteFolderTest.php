@@ -10,7 +10,6 @@
 namespace grommunio\DAV;
 
 use PHPUnit\Framework\TestCase;
-use Sabre\DAV\Exception\NotFound;
 
 // MAPI functions of the backend while a test of this file runs, the calls
 // are recorded in $GLOBALS['deleteFolderMapi'], otherwise the real ones
@@ -18,6 +17,7 @@ function mapi_getprops($obj, $tags) {
 	if (!isset($GLOBALS['deleteFolderMapi'])) {
 		return \mapi_getprops($obj, $tags);
 	}
+
 	return $GLOBALS['deleteFolderMapi']['props'][$obj] ?? [];
 }
 
@@ -25,6 +25,7 @@ function mapi_msgstore_openentry($store, $entryid = null) {
 	if (!isset($GLOBALS['deleteFolderMapi'])) {
 		return \mapi_msgstore_openentry($store, $entryid);
 	}
+
 	return $entryid;
 }
 
@@ -53,6 +54,7 @@ function mapi_last_hresult() {
 	if (!isset($GLOBALS['deleteFolderMapi'])) {
 		return \mapi_last_hresult();
 	}
+
 	return $GLOBALS['deleteFolderMapi']['hresult'] ?? 0;
 }
 
@@ -60,6 +62,7 @@ function mapi_folder_gethierarchytable($folder, $flags = 0) {
 	if (!isset($GLOBALS['deleteFolderMapi'])) {
 		return \mapi_folder_gethierarchytable($folder, $flags);
 	}
+
 	return 'hierarchy';
 }
 
@@ -67,6 +70,7 @@ function mapi_table_queryallrows($table, $tags = []) {
 	if (!isset($GLOBALS['deleteFolderMapi'])) {
 		return \mapi_table_queryallrows($table, $tags);
 	}
+
 	return [];
 }
 

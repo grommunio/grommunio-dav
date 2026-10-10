@@ -154,7 +154,6 @@ class DistList {
 	 *
 	 * @param string $addressBookId
 	 * @param mixed  $mapimessage
-	 * @param VCard  $vcard
 	 *
 	 * @return bool
 	 */
@@ -239,8 +238,12 @@ class DistList {
 		mapi_deleteprops($mapimessage, $delete);
 		if (!mapi_setprops($mapimessage, $props)) {
 			$err = mapi_last_hresult();
-			$this->logger->error("DistList: unable to set properties: %s (0x%x)",
-				mapi_strerror($err), $err);
+			$this->logger->error(
+				"DistList: unable to set properties: %s (0x%x)",
+				mapi_strerror($err),
+				$err
+			);
+
 			return false;
 		}
 

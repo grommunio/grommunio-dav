@@ -54,7 +54,7 @@ class GrommunioDavBackend {
 		$gDavVersion = 'grommunio-dav' . @constant('GDAV_VERSION');
 		$userAgent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'unknown';
 		if (defined('ALLOW_IMPERSONATE') && ALLOW_IMPERSONATE &&
-		    stripos($user, self::IMPERSONATE_DELIM) !== false) {
+			stripos($user, self::IMPERSONATE_DELIM) !== false) {
 			$parts = explode(self::IMPERSONATE_DELIM, $user);
 			if (count($parts) === 2) {
 				[$impersonatedUser, $authUser] = $parts;
@@ -190,7 +190,7 @@ class GrommunioDavBackend {
 	 *
 	 * @param mixed  $store
 	 * @param mixed  $parentfolder
-	 * @param array  $props        PR_ENTRYID and PR_DISPLAY_NAME of the folder
+	 * @param array  $props              PR_ENTRYID and PR_DISPLAY_NAME of the folder
 	 * @param string $wastebasketEntryid
 	 * @param string $id
 	 *
@@ -280,7 +280,7 @@ class GrommunioDavBackend {
 			$this->logger->debug("mapi_folder_gethierarchytable returned 0 entries, try opening folders directly");
 			$rows = [];
 			foreach ($classes as $class) {
-				$folderEntryId = match($class) {
+				$folderEntryId = match ($class) {
 					'IPF.Contact' => $rootprops[PR_IPM_CONTACT_ENTRYID] ?? null,
 					'IPF.Appointment' => $rootprops[PR_IPM_APPOINTMENT_ENTRYID] ?? null,
 					'IPF.Task' => $rootprops[PR_IPM_TASK_ENTRYID] ?? null,
@@ -294,8 +294,14 @@ class GrommunioDavBackend {
 					}
 					catch (\Throwable $t) {
 						$err = mapi_last_hresult();
-						$this->logger->debug("Getting folder of class \"%s\" (entryid %s): %s (0x%x) - %s",
-							$class, bin2hex($folderEntryId), mapi_strerror($err), $err, $t);
+						$this->logger->debug(
+							"Getting folder of class \"%s\" (entryid %s): %s (0x%x) - %s",
+							$class,
+							bin2hex($folderEntryId),
+							mapi_strerror($err),
+							$err,
+							$t
+						);
 					}
 				}
 			}
@@ -876,8 +882,13 @@ class GrommunioDavBackend {
 		$store = $this->OpenMapiStore($storename);
 		if (!$store) {
 			$err = mapi_last_hresult();
-			$this->logger->info("Auth: Unable to open store for \"%s\": %s (0x%x)",
-				$storename, mapi_strerror($err), $err);
+			$this->logger->info(
+				"Auth: Unable to open store for \"%s\": %s (0x%x)",
+				$storename,
+				mapi_strerror($err),
+				$err
+			);
+
 			return false;
 		}
 
@@ -1038,8 +1049,12 @@ class GrommunioDavBackend {
 			}
 			else {
 				$err = mapi_last_hresult();
-				$this->logger->error("Table restriction for search keyword \"%s\" failed: %s (0x%x)",
-					$id, mapi_strerror($err), $err);
+				$this->logger->error(
+					"Table restriction for search keyword \"%s\" failed: %s (0x%x)",
+					$id,
+					mapi_strerror($err),
+					$err
+				);
 				$rows = [];
 			}
 			if (count($rows) > 1) {

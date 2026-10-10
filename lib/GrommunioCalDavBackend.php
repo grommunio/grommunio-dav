@@ -17,6 +17,9 @@ use Sabre\CalDAV\Xml\Property\ScheduleCalendarTransp;
 use Sabre\DAV\Exception\Forbidden;
 use Sabre\DAV\Exception\UnsupportedMediaType;
 use Sabre\DAV\PropPatch;
+use Sabre\VObject\Component\VTodo;
+use Sabre\VObject\Property;
+use Sabre\VObject\Property\ICalendar\DateTime;
 use Sabre\VObject\Reader;
 
 class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSupport, SyncSupport {
@@ -568,8 +571,11 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 		}
 		if (!$ics && mapi_last_hresult()) {
 			$err = mapi_last_hresult();
-			$this->logger->error("Error generating iCal: %s (0x%x)",
-				mapi_strerror($err), $err);
+			$this->logger->error(
+				"Error generating iCal: %s (0x%x)",
+				mapi_strerror($err),
+				$err
+			);
 			$ics = null;
 		}
 		elseif (!$ics) {
@@ -826,7 +832,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 			return;
 		}
 
-		/** @var \Sabre\VObject\Component\VTodo $vtodo */
+		/** @var VTodo $vtodo */
 		$vtodo = reset($vtodos);
 
 		$propMap = getPropIdsFromStrings($store, [
@@ -935,17 +941,17 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	/**
 	 * Converts a VObject datetime property into a UTC timestamp suitable for PT_SYSTIME fields.
 	 *
-	 * @param \Sabre\VObject\Property $property
+	 * @param Property $property
 	 *
-	 * @return int|null
+	 * @return null|int
 	 */
 	private function timestampFromVObjectProperty($property) {
-		if (!$property instanceof \Sabre\VObject\Property) {
+		if (!$property instanceof Property) {
 			return null;
 		}
 
 		try {
-			if ($property instanceof \Sabre\VObject\Property\ICalendar\DateTime) {
+			if ($property instanceof DateTime) {
 				$dateTime = $property->getDateTime(new \DateTimeZone('UTC'));
 			}
 			else {
@@ -966,7 +972,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 *
 	 * @param string $duration
 	 *
-	 * @return int|null
+	 * @return null|int
 	 */
 	private function minutesFromIsoDuration($duration) {
 		$duration = trim((string) $duration);
@@ -1003,7 +1009,7 @@ class GrommunioCalDavBackend extends AbstractBackend implements SchedulingSuppor
 	 *
 	 * @param string $priority
 	 *
-	 * @return array|null
+	 * @return null|array
 	 */
 	private function mapPriorityValues($priority) {
 		if ($priority === null || $priority === '') {

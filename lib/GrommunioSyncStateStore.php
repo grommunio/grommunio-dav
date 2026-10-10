@@ -198,8 +198,12 @@ class GrommunioSyncStateStore {
 			mapi_folder_createmessage($folder, MAPI_ASSOCIATED);
 		if (!$message) {
 			$err = mapi_last_hresult();
-			$this->logger->error("Unable to store sync state: %s (0x%x)",
-				mapi_strerror($err), $err);
+			$this->logger->error(
+				"Unable to store sync state: %s (0x%x)",
+				mapi_strerror($err),
+				$err
+			);
+
 			return;
 		}
 		$props = [PR_MESSAGE_CLASS => $class];
@@ -209,8 +213,11 @@ class GrommunioSyncStateStore {
 		mapi_setprops($message, $props);
 		if (!mapi_savechanges($message)) {
 			$err = mapi_last_hresult();
-			$this->logger->error("Unable to save sync state: %s (0x%x)",
-				mapi_strerror($err), $err);
+			$this->logger->error(
+				"Unable to save sync state: %s (0x%x)",
+				mapi_strerror($err),
+				$err
+			);
 		}
 	}
 
@@ -276,8 +283,12 @@ class GrommunioSyncStateStore {
 		$table = mapi_folder_getcontentstable($folder, MAPI_ASSOCIATED | MAPI_DEFERRED_ERRORS);
 		if (!$table || !mapi_table_restrict($table, [RES_AND, $restriction])) {
 			$err = mapi_last_hresult();
-			$this->logger->error("Unable to search sync state: %s (0x%x)",
-				mapi_strerror($err), $err);
+			$this->logger->error(
+				"Unable to search sync state: %s (0x%x)",
+				mapi_strerror($err),
+				$err
+			);
+
 			return [];
 		}
 		$tags = array_map(fn ($name) => $properties[$name], $columns);
@@ -323,8 +334,12 @@ class GrommunioSyncStateStore {
 		$root = $this->store ? mapi_msgstore_openentry($this->store) : false;
 		if (!$root) {
 			$err = mapi_last_hresult();
-			$this->logger->error("Unable to open the store for the sync state: %s (0x%x)",
-				mapi_strerror($err), $err);
+			$this->logger->error(
+				"Unable to open the store for the sync state: %s (0x%x)",
+				mapi_strerror($err),
+				$err
+			);
+
 			return null;
 		}
 		$folder = false;
@@ -349,8 +364,12 @@ class GrommunioSyncStateStore {
 		}
 		if (!$folder) {
 			$err = mapi_last_hresult();
-			$this->logger->error("Unable to open the sync state folder: %s (0x%x)",
-				mapi_strerror($err), $err);
+			$this->logger->error(
+				"Unable to open the sync state folder: %s (0x%x)",
+				mapi_strerror($err),
+				$err
+			);
+
 			return null;
 		}
 		$this->folder = $folder;
