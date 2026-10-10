@@ -1,22 +1,49 @@
-grommunio-dav 1.8.x (dev)
-=========================
+grommunio-dav 1.9 (2026-10-10)
+==============================
+
+Behavioral changes:
+
+* The sync state is kept in the hidden folder GD-SyncState of each user's
+  store instead of the SQLite database. Clients sync each collection once
+  more after the update. SYNC_DB is only used for the GAL cache now.
 
 Fixes:
 
 * Hide private elements and tasks for others except delegates. Non-delegates
   only see schedule info (no details)
 * Evaluate PidLidPrivate for private appointments (not only PR_SENSITIVITY)
+* PUT/DELETE without permission answered 201/204 while nothing was stored;
+  MAPI errors are now reported (403), unconvertible data with 415
+* A failing table restriction made lookups return an arbitrary object
+* calendar-query applied only component type and time range; all filters
+  (text match, UID, task/note time ranges etc.) are now evaluated
+* Truncated sync reports were not marked, clients missed remaining changes
+* No sync token was issued for empty collections, and unchanged collections
+  did not offer their token
+* The GAL cache issued a new sync token on every refresh, making clients
+  download the whole GAL again
+* Collections renamed by clients changed their URL; the URL is now kept
+* Folders with "/" or duplicate names were unreachable
+* Stores/folders that cannot be opened failed with status 500 instead of
+  404/403
+* Opening a shared store replaced the logged on user
+* Failed deletions of collections were reported as success
+* Unknown users were listed as principals
+* SABRE_AUTH_BACKEND "apache" failed every request with status 500; it is now
+  refused with 501 and a log message
+* Names of deleted objects in sync reports are encoded
+* Time zone observances are trimmed per VTIMEZONE
 
 Enhancements:
 
 * Calendars without write permissions are now properly offered read-only to
   clients
 * Calendars without at least read permissions are not listed / made visible
-* Respond appropriately to MAPI errors (permissions, journal, etc.) on
-  PUT/DELETE with 201/204 for invalid access and 415 for conversion errors
-  which allows clients to deal with issues instead of silently "ignoring"
 * Support for distribution lists (contact groups)
 * Stable UID for contacts without vCard UID
+* Notes are offered as VJOURNAL calendars (Evolution memos, DAVx5 jtx Board)
+* MAPI error names are logged alongside numeric codes
+* Updated dependencies
 
 grommunio-dav 1.8 (2026-09-24)
 ==============================
