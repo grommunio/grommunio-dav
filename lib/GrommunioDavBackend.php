@@ -922,6 +922,27 @@ class GrommunioDavBackend {
 	}
 
 	/**
+	 * Returns the SMTP address of the owner of the store a folder belongs to.
+	 *
+	 * @param string $id folder id
+	 *
+	 * @return null|string
+	 */
+	public function GetStoreOwnerAddress($id) {
+		$props = mapi_getprops($this->GetStoreById($id), [PR_MAILBOX_OWNER_ENTRYID]);
+		if (!isset($props[PR_MAILBOX_OWNER_ENTRYID])) {
+			return null;
+		}
+		$mailuser = mapi_ab_openentry($this->GetAddressBook(), $props[PR_MAILBOX_OWNER_ENTRYID]);
+		if (!$mailuser) {
+			return null;
+		}
+		$props = mapi_getprops($mailuser, [PR_SMTP_ADDRESS]);
+
+		return $props[PR_SMTP_ADDRESS] ?? null;
+	}
+
+	/**
 	 * Returns logon session.
 	 *
 	 * @return mixed
